@@ -86,7 +86,7 @@ export const PrivacyView = ({ onClearData }) => {
               <span>What is Stored in localStorage</span>
             </h4>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Persistent storage is strictly limited to non-sensitive progress: your 7-day plan completion checkboxes, extracted claim risk tags, recent session readiness scores, and UI preferences.
+              Persistent storage is limited to local progress data such as 7-day plan completion checkboxes, recent session readiness scores, and UI preferences.
             </p>
           </div>
 
@@ -133,7 +133,7 @@ export const PrivacyView = ({ onClearData }) => {
           <div className="rounded-xl border border-purple-950/60 bg-purple-950/15 p-4 space-y-1.5">
             <span className="font-bold text-purple-400">2. Gemini API Mode (Opt-In Developer Mode)</span>
             <p className="text-slate-300 leading-relaxed">
-              Requires user activation. Before sending payload to Google Gemini, an automated client-side PII scrubber sanitizes personal identifiers (names, emails, phone numbers).
+              Requires user activation. Before sending payload to Google Gemini, an automated client-side PII scrubber sanitizes detected identifiers such as emails, phone numbers, URLs, and numeric codes
             </p>
           </div>
         </div>

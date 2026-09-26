@@ -40,16 +40,14 @@ export default function App() {
   const [selectedClaimForModal, setSelectedClaimForModal] = useState(null);
 
   // Resume & Claims State
-  const [resumeData, setResumeData] = useState(() => resumeParser.getSampleResume());
-  const [activeClaim, setActiveClaim] = useState(() => {
-    const sample = resumeParser.getSampleResume();
-    return sample.claims[0];
-  });
+  const [resumeData, setResumeData] = useState(null);
+  const [activeClaim, setActiveClaim] = useState(null);
 
   // Last Interview Session State (for Progress View)
   const [lastFeedback, setLastFeedback] = useState(null);
   const [lastQuestion, setLastQuestion] = useState("");
-  const [lastAnswer, setLastAnswer] = useState("");
+  const [lastAnswer, setLastAnswer] = 
+  useState("");
   const [lastPersona, setLastPersona] = useState(() => getPersonaById("tech-lead"));
 
   // Sync AI mode with aiService
@@ -84,8 +82,17 @@ export default function App() {
 
   // Start Prep Flow
   const handleStartPrep = () => {
-    setActiveView("dashboard");
-  };
+  setActiveView("parse");
+};
+// Safe navigation: Dashboard requires a resume
+const handleNavigate = (view) => {
+  if (view === "dashboard" && !resumeData) {
+    setActiveView("parse");
+    return;
+  }
+
+  setActiveView(view);
+};
 
   // Practice Claim: Transitions from Parse/Modal directly into Hot Seat
   const handlePracticeClaim = (claim) => {
