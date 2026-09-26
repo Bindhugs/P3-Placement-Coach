@@ -25,7 +25,9 @@ export const ProbeView = ({
   allClaims, 
   onClaimChange, 
   onFinishInterview,
-  userSettings 
+  userSettings,
+  selectedRole,
+  experienceLevel
 }) => {
   // Selected persona state
   const [selectedPersonaId, setSelectedPersonaId] = useState("tech-lead");
@@ -59,17 +61,27 @@ export const ProbeView = ({
 
   // Initialize question based on active claim or default
   useEffect(() => {
-    if (activeClaim && activeClaim.likelyQuestions && activeClaim.likelyQuestions.length > 0) {
-      setActiveQuestion(activeClaim.likelyQuestions[0]);
-    } else {
-      setActiveQuestion("Your resume says you implemented a payment system. Which payment gateway did you integrate, and how did you handle duplicate transactions?");
-    }
+      if (activeClaim && activeClaim.likelyQuestions && activeClaim.likelyQuestions.length > 0) {
+    setActiveQuestion(activeClaim.likelyQuestions[0]);
+  } else if (selectedRole === "AI/ML Engineer") {
+    setActiveQuestion(
+      `For an ${experienceLevel || "entry-level"} ${selectedRole} role, explain one technical decision you made in your project and why you chose that approach.`
+    );
+  } else if (selectedRole) {
+    setActiveQuestion(
+      `For an ${experienceLevel || "entry-level"} ${selectedRole} role, explain one important technical decision from your project.`
+    );
+  } else {
+    setActiveQuestion(
+      "Your resume says you implemented a payment system. Which payment gateway did you integrate, and how did you handle duplicate transactions?"
+    );
+  }
     // Reset answers
     setTranscript("");
     setDuration(0);
     setDrillDownActive(false);
     setDrillDownQuestion("");
-  }, [activeClaim]);
+  }, [activeClaim, selectedRole, experienceLevel]);
 
   // Speaking timer
   useEffect(() => {
@@ -281,7 +293,28 @@ export const ProbeView = ({
           })}
         </div>
       </div>
+        {/* Target Role Context */}
+        <div className="rounded-xl border border-cyan-500/20 bg-cyan-950/10 p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+        <p className="text-[10px] font-mono uppercase tracking-widest text-cyan-400 font-bold">
+          INTERVIEW TARGET
+        </p>
 
+        <h2 className="text-sm font-bold text-white mt-1">
+          {selectedRole || "Role not selected"}
+        </h2>
+
+        <p className="text-[11px] text-slate-400 mt-1">
+          {experienceLevel || "Experience level not selected"}
+        </p>
+        </div>
+
+        <span className="text-[10px] text-slate-500 font-mono">
+          Questions are tailored to your target profile
+        </span>
+    </div>
+  </div>
       {/* Active Claim Context Bar */}
       {activeClaim && (
         <div className="rounded-xl border border-slate-800/90 bg-[#080d1a] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">

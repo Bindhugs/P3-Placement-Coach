@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { 
   FileSearch, 
   UploadCloud, 
@@ -21,19 +21,79 @@ import {
   FileCheck2
 } from "lucide-react";
 import { extractTextFromFile } from "../../services/fileExtractor";
+import * as pdfjsLib from "pdfjs-dist";
+import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 export const ParseView = ({ 
   resumeData, 
   selectedRole,
   experienceLevel,
+  uploadedResumeFile,
   onSelectClaim, 
   onPracticeClaim, 
   onLoadSampleResume, 
   onUploadResumeText 
 }) => {
   const [filterRisk, setFilterRisk] = useState("ALL"); // ALL, HIGH, MEDIUM, LOW
-  const claimsSectionRef = useRef(null);
   const [activeTab, setActiveTab] = useState("claims"); // claims, overview, formatting
+  const [resumePreviewUrl, setResumePreviewUrl] = useState("");
+  const pdfCanvasRef = useRef(null);
+  useEffect(() => {
+  if (!uploadedResumeFile) {
+    setResumePreviewUrl("");
+    return;
+  }
+
+  const url = URL.createObjectURL(uploadedResumeFile);
+  setResumePreviewUrl(url);
+
+  return () => URL.revokeObjectURL(url);
+}, [uploadedResumeFile]);
+useEffect(() => {
+  if (!resumePreviewUrl || !pdfCanvasRef.current) return;
+
+  let cancelled = false;
+
+  const renderPdf = async () => {
+    try {
+      const loadingTask = pdfjsLib.getDocument(resumePreviewUrl);
+      const pdf = await loadingTask.promise;
+
+      if (cancelled) return;
+
+      const page = await pdf.getPage(1);
+
+      const canvas = pdfCanvasRef.current;
+      const context = canvas.getContext("2d");
+
+      const containerWidth = canvas.parentElement.clientWidth;
+      const baseViewport = page.getViewport({ scale: 1 });
+
+      const scale = containerWidth / baseViewport.width;
+      const viewport = page.getViewport({ scale });
+
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+
+      await page.render({
+        canvasContext: context,
+        viewport
+      }).promise;
+    } catch (error) {
+      console.error("PDF preview rendering failed:", error);
+    }
+  };
+
+  renderPdf();
+
+  return () => {
+    cancelled = true;
+  };
+}, [resumePreviewUrl, activeTab]);
+  const claimsSectionRef = useRef(null);
+  
   const [pastedText, setPastedText] = useState("");
   const [showPasteBox, setShowPasteBox] = useState(false);
   const [dragActive, setDragActive] = useState(false);
@@ -190,7 +250,7 @@ export const ParseView = ({
       // Small visual pause for smooth transition
       await new Promise(r => setTimeout(r, 400));
 
-      const parsed = onUploadResumeText(extractionResult.text, file.name);
+      const parsed = onUploadResumeText(extractionResult.text, file.name, file);
 
       // Step 3: Success state
       const sectionCount = parsed?.detectedSections?.length || 4;
@@ -328,14 +388,7 @@ export const ParseView = ({
 
         <div className="flex items-center gap-2">
           {/* Explicit Load Sample Resume Button */}
-          <button
-            onClick={handleLoadSample}
-            className="flex items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-950/40 px-3.5 py-2 text-xs font-semibold text-cyan-300 hover:bg-cyan-900/40 transition-all shadow-sm shadow-cyan-950/20"
-            title="Load sample student resume (Python, Flask, MySQL, Stripe payments)"
-          >
-            <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
-            <span>Load Sample Resume</span>
-          </button>
+          
           
           <button
             onClick={() => setShowPasteBox(!showPasteBox)}
@@ -478,8 +531,9 @@ export const ParseView = ({
       )}
 
       {/* Upload Dropzone (Interactive, Drag-and-Drop & File Picker) */}
-      <div
-        onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+        {!uploadedResumeFile && (
+        <div
+    onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
         onDragLeave={() => setDragActive(false)}
         onDrop={handleDrop}
         className={`rounded-2xl border-2 border-dashed p-6 text-center transition-all ${
@@ -528,230 +582,236 @@ export const ParseView = ({
           </div>
         </div>
       </div>
-
+        )}
+              {(analysisSuccess || uploadedResumeFile) && (
+        <>
       {/* Sub-Navigation Tabs: Risky Claims vs Resume Overview vs Presentation Diagnostics */}
-            {/* Recruiter Target & X-Ray Summary */}
-      <div className="space-y-4">
+<div className="flex items-center gap-2 border-b border-slate-800 pb-3 mb-6 overflow-x-auto">
+  {[
+    { id: "claims", label: "Risky Claims" },
+    { id: "overview", label: "Resume Overview" },
+    { id: "formatting", label: "Presentation Diagnostics" }
+  ].map((tab) => (
+    <button
+      key={tab.id}
+      type="button"
+      onClick={() => setActiveTab(tab.id)}
+      className={`px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+        activeTab === tab.id
+          ? "bg-cyan-500 text-slate-950"
+          : "bg-slate-900 text-slate-400 border border-slate-800 hover:text-white hover:border-slate-700"
+      }`}
+    >
+      {tab.label}
+    </button>
+  ))}
+</div>
+{/* Resume + Recruiter X-Ray */}
+{activeTab === "overview" && (
+  <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-6">
 
-        {/* Target */}
-        <div className="rounded-2xl border border-cyan-500/20 bg-cyan-950/10 p-5">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-mono uppercase tracking-widest text-cyan-400 font-bold">
-                TARGET PROFILE
-              </p>
+  {/* LEFT — Resume */}
+  <div className="rounded-2xl border border-slate-800 bg-slate-950/60 overflow-hidden">
+    <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
+      <div>
+        <p className="text-[10px] font-mono uppercase tracking-widest text-cyan-400 font-bold">
+          RESUME PREVIEW
+        </p>
 
-              <h2 className="text-lg font-bold text-white mt-1">
-                {selectedRole || "Role not selected"}
-              </h2>
+        <h3 className="text-sm font-bold text-white mt-1">
+          {uploadedResumeFile?.name || "Uploaded Resume"}
+        </h3>
+      </div>
 
-              <p className="text-xs text-slate-400 mt-1">
-                {experienceLevel || "Experience level not selected"}
-              </p>
-            </div>
+      <span className="text-[10px] font-mono text-slate-500">
+        PDF
+      </span>
+    </div>
 
-            <div className="text-xs text-slate-400">
-              Recruiter analysis is based on your resume evidence
-            </div>
-          </div>
-        </div>
+    {resumePreviewUrl ? (
+  <div className="h-[700px] bg-slate-900 overflow-hidden">
+  <iframe
+    src={`${resumePreviewUrl}#toolbar=0&navpanes=0`}
+    title="Resume Preview"
+    className="w-full h-full border-0"
+  />
+</div>
+) : (
+      <div className="h-[700px] flex items-center justify-center text-slate-500 text-sm">
+        Upload a PDF to preview your resume here.
+      </div>
+    )}
+  </div>
 
-        {/* Recruiter X-Ray */}
-        <div className="rounded-2xl border border-slate-800 bg-[#0a0f1c] p-5">
-          <div className="flex items-center gap-2 mb-5">
-            <Sparkles className="h-5 w-5 text-cyan-400" />
+  {/* RIGHT — Recruiter X-Ray */}
+  <div className="space-y-4">
 
-            <div>
-              <h2 className="text-base font-bold text-white">
-                Recruiter X-Ray
-              </h2>
+    {/* Target Profile */}
+    <div className="rounded-2xl border border-cyan-500/20 bg-cyan-950/10 p-5">
+      <p className="text-[10px] font-mono uppercase tracking-widest text-cyan-400 font-bold">
+        TARGET PROFILE
+      </p>
 
-              <p className="text-[11px] text-slate-400">
-                What stands out before the interview — and what may get questioned.
-              </p>
-            </div>
-          </div>
+      <h2 className="text-lg font-bold text-white mt-1">
+        {selectedRole || "Role not selected"}
+      </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <p className="text-xs text-slate-400 mt-1">
+        {experienceLevel || "Experience level not selected"}
+      </p>
+    </div>
 
-            {/* Strengths */}
-            <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/10 p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+    {/* Recruiter X-Ray */}
+    <div className="rounded-2xl border border-slate-800 bg-[#0a0f1c] p-5">
 
-                <h3 className="text-xs font-bold text-emerald-300 uppercase tracking-wider">
-                  Strengths
-                </h3>
-              </div>
+      <div className="flex items-center gap-2 mb-5">
+        <Sparkles className="h-5 w-5 text-cyan-400" />
 
-              <div className="space-y-2">
-                {recruiterStrengths.length > 0 ? (
-                  recruiterStrengths.map((item, index) => (
-                    <div
-                      key={index}
-                      className="flex items-start gap-2 text-xs text-slate-300"
-                    >
-                      <span className="text-emerald-400 mt-0.5">✓</span>
-                      <span>{item}</span>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-xs text-slate-500">
-                    Not enough resume evidence yet.
-                  </p>
-                )}
-              </div>
-            </div>
+        <div>
+          <h2 className="text-base font-bold text-white">
+            Recruiter X-Ray
+          </h2>
 
-            {/* Needs Attention */}
-            <div className="rounded-xl border border-amber-500/20 bg-amber-950/10 p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <AlertTriangle className="h-4 w-4 text-amber-400" />
-
-                <h3 className="text-xs font-bold text-amber-300 uppercase tracking-wider">
-                  Needs Attention
-                </h3>
-              </div>
-
-              <div className="space-y-2">
-                {recruiterAttention.length > 0 ? (
-                  recruiterAttention.map((item, index) => (
-                    <div
-                      key={index}
-                      className="flex items-start gap-2 text-xs text-slate-300"
-                    >
-                      <span className="text-amber-400 mt-0.5">!</span>
-                      <span>{item}</span>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-xs text-slate-500">
-                    No major attention points detected.
-                  </p>
-                )}
-              </div>
-                          {/* Role Match */}
-            <div className="md:col-span-2 rounded-xl border border-cyan-500/20 bg-cyan-950/10 p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Briefcase className="h-4 w-4 text-cyan-400" />
-
-                <h3 className="text-xs font-bold text-cyan-300 uppercase tracking-wider">
-                  Role Match
-                </h3>
-              </div>
-
-              <p className="text-xs text-slate-300 mb-3">
-                {roleMatchMessage}
-              </p>
-
-              {matchedRoleKeywords.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {matchedRoleKeywords.slice(0, 8).map((keyword) => (
-                    <span
-                      key={keyword}
-                      className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 text-[10px] text-emerald-300 font-mono"
-                    >
-                      ✓ {keyword}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {missingRoleKeywords.length > 0 && (
-                <div className="mt-3">
-                  <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-2">
-                    Evidence not detected
-                  </p>
-
-                  <div className="flex flex-wrap gap-2">
-                    {missingRoleKeywords.slice(0, 6).map((keyword) => (
-                      <span
-                        key={keyword}
-                        className="rounded-md bg-amber-500/10 border border-amber-500/20 px-2 py-1 text-[10px] text-amber-300 font-mono"
-                      >
-                        ! {keyword}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-            </div>
-
-          </div>
-
-          {/* High-value claims */}
-          {topRiskyClaims.length > 0 && (
-            <div className="mt-4 rounded-xl border border-rose-500/20 bg-rose-950/10 p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Flame className="h-4 w-4 text-rose-400" />
-
-                <h3 className="text-xs font-bold text-rose-300 uppercase tracking-wider">
-                  Claims Worth Defending
-                </h3>
-              </div>
-
-              <div className="space-y-2">
-                {topRiskyClaims.map((claim) => (
-                  <button
-                    key={claim.id}
-                    type="button"
-                    onClick={() => onPracticeClaim(claim)}
-                    className="w-full text-left rounded-lg border border-slate-800 bg-black/20 p-3 hover:border-cyan-500/40 transition-colors"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-xs text-slate-200 font-medium">
-                        "{claim.claim}"
-                      </span>
-
-                      <ChevronRight className="h-4 w-4 text-cyan-400 shrink-0" />
-                    </div>
-
-                    <p className="text-[10px] text-slate-500 mt-1">
-                      Click to practice defending this claim
-                    </p>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
+          <p className="text-[11px] text-slate-400">
+            What stands out before the interview — and what may get questioned.
+          </p>
         </div>
       </div>
-      <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => setActiveTab("claims")}
-            className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all ${
-              activeTab === "claims"
-                ? "bg-slate-800 text-cyan-400 border border-slate-700"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            Risky Claims ({claims.length})
-          </button>
-          <button
-            onClick={() => setActiveTab("overview")}
-            className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all ${
-              activeTab === "overview"
-                ? "bg-slate-800 text-cyan-400 border border-slate-700"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            Resume Overview ({detectedSections.length} sections)
-          </button>
-          <button
-            onClick={() => setActiveTab("formatting")}
-            className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all ${
-              activeTab === "formatting"
-                ? "bg-slate-800 text-cyan-400 border border-slate-700"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            Presentation Flags ({presentationIssues.length})
-          </button>
+
+      {/* Strengths */}
+      <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/10 p-4 mb-4">
+        <div className="flex items-center gap-2 mb-3">
+          <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+
+          <h3 className="text-xs font-bold text-emerald-300 uppercase tracking-wider">
+            Strengths
+          </h3>
         </div>
 
+        <div className="space-y-2">
+          {recruiterStrengths.length > 0 ? (
+            recruiterStrengths.map((item, index) => (
+              <div
+                key={index}
+                className="flex items-start gap-2 text-xs text-slate-300"
+              >
+                <span className="text-emerald-400 mt-0.5">✓</span>
+                <span>{item}</span>
+              </div>
+            ))
+          ) : (
+            <p className="text-xs text-slate-500">
+              Not enough resume evidence yet.
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Needs Attention */}
+      <div className="rounded-xl border border-amber-500/20 bg-amber-950/10 p-4 mb-4">
+        <div className="flex items-center gap-2 mb-3">
+          <AlertTriangle className="h-4 w-4 text-amber-400" />
+
+          <h3 className="text-xs font-bold text-amber-300 uppercase tracking-wider">
+            Needs Attention
+          </h3>
+        </div>
+
+        <div className="space-y-2">
+          {recruiterAttention.length > 0 ? (
+            recruiterAttention.map((item, index) => (
+              <div
+                key={index}
+                className="flex items-start gap-2 text-xs text-slate-300"
+              >
+                <span className="text-amber-400 mt-0.5">!</span>
+                <span>{item}</span>
+              </div>
+            ))
+          ) : (
+            <p className="text-xs text-slate-500">
+              No major attention points detected.
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Role Match */}
+      <div className="rounded-xl border border-cyan-500/20 bg-cyan-950/10 p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Briefcase className="h-4 w-4 text-cyan-400" />
+
+          <h3 className="text-xs font-bold text-cyan-300 uppercase tracking-wider">
+            Role Match
+          </h3>
+        </div>
+
+        <p className="text-xs text-slate-300 mb-3">
+          {roleMatchMessage}
+        </p>
+
+        {matchedRoleKeywords.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {matchedRoleKeywords.slice(0, 8).map((keyword) => (
+              <span
+                key={keyword}
+                className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 text-[10px] text-emerald-300 font-mono"
+              >
+                ✓ {keyword}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {missingRoleKeywords.length > 0 && (
+          <div className="mt-3">
+            <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-2">
+              Evidence not detected
+            </p>
+
+            <div className="flex flex-wrap gap-2">
+              {missingRoleKeywords.slice(0, 6).map((keyword) => (
+                <span
+                  key={keyword}
+                  className="rounded-md bg-amber-500/10 border border-amber-500/20 px-2 py-1 text-[10px] text-amber-300 font-mono"
+                >
+                  ! {keyword}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+    </div>
+  </div>
+)}
+
+          {/* High-value claims — only visible in Risky Claims tab */}
+{activeTab === "claims" && topRiskyClaims.length > 0 && (
+  <div className="mt-4 rounded-xl border border-rose-500/20 bg-rose-950/10 p-4">
+    <div className="flex items-center gap-2 mb-3">
+      <Flame className="h-4 w-4 text-rose-400" />
+
+      <h3 className="text-xs font-bold text-rose-300 uppercase tracking-wider">
+        Claims Worth Defending
+      </h3>
+    </div>
+
+    <div className="space-y-2">
+      {topRiskyClaims.map((claim) => (
+        <div
+          key={claim.id}
+          className="rounded-lg border border-slate-800 bg-black/20 p-3"
+        >
+          <p className="text-xs text-slate-200 font-mono">
+            "{claim.claim}"
+          </p>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
         {/* Risk Filter (only visible when in Claims tab) */}
         {activeTab === "claims" && (
           <div className="flex items-center gap-1 text-xs">
@@ -772,8 +832,6 @@ export const ParseView = ({
             ))}
           </div>
         )}
-      </div>
-
       {/* Tab 1: Risky Claims Grid */}
       {activeTab === "claims" && (
         <div ref={claimsSectionRef} className="space-y-4">
@@ -1020,7 +1078,9 @@ export const ParseView = ({
           </div>
         </div>
       )}
-
+              </>
+      )}
     </div>
+    
   );
 };

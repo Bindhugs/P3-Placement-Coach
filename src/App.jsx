@@ -41,6 +41,7 @@ export default function App() {
 
   // Resume & Claims State
   const [resumeData, setResumeData] = useState(() => resumeParser.getSampleResume());
+  const [uploadedResumeFile, setUploadedResumeFile] = useState(null);
   const [activeClaim, setActiveClaim] = useState(() => {
     const sample = resumeParser.getSampleResume();
     return sample.claims[0];
@@ -83,8 +84,8 @@ export default function App() {
   };
 
   // Start Prep Flow
-  const handleStartPrep = () => {
-    setActiveView("dashboard");
+    const handleStartPrep = () => {
+    setActiveView("parse");
   };
 
   // Practice Claim: Transitions from Parse/Modal directly into Hot Seat
@@ -151,7 +152,9 @@ export default function App() {
   };
 
   // Upload/Parse new resume text
-  const handleUploadResumeText = (text, fileName = "Uploaded Resume") => {
+  const handleUploadResumeText = (text, fileName = "Uploaded Resume", file = null) => {
+    setUploadedResumeFile(file);
+    
     const parsed = resumeParser.parseTextContent(text, fileName);
     setResumeData(parsed);
     if (parsed.claims.length > 0) {
@@ -216,6 +219,7 @@ export default function App() {
           <ParseView
             resumeData={resumeData}selectedRole={selectedRole}
             experienceLevel={experienceLevel}
+            uploadedResumeFile={uploadedResumeFile}
             onSelectClaim={(claim) => setSelectedClaimForModal(claim)}
             onPracticeClaim={handlePracticeClaim}
             onLoadSampleResume={() => {
@@ -234,7 +238,9 @@ export default function App() {
             onClaimChange={(claim) => setActiveClaim(claim)}
             onFinishInterview={handleFinishInterview}
             userSettings={settings}
-          />
+            selectedRole={selectedRole}
+            experienceLevel={experienceLevel}
+            />
         )}
 
         {activeView === "progress" && (

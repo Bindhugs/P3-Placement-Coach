@@ -54,13 +54,6 @@ export const LandingView = ({ onStartPrep, onTriggerDemo, onViewHowItWorks }) =>
               <ArrowRight className="h-4 w-4" />
             </button>
 
-            <button
-              onClick={onTriggerDemo}
-              className="flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-6 py-3.5 text-sm font-semibold text-slate-200 hover:border-cyan-500/40 hover:bg-slate-800 hover:text-white transition-all w-full sm:w-auto"
-            >
-              <Sparkles className="h-4 w-4 text-cyan-400" />
-              <span>Try Demo with Sample Resume</span>
-            </button>
           </div>
 
           {/* Privacy Trust Micro-badge */}
