@@ -214,7 +214,8 @@ export default function App() {
 
         {activeView === "parse" && (
           <ParseView
-            resumeData={resumeData}
+            resumeData={resumeData}selectedRole={selectedRole}
+            experienceLevel={experienceLevel}
             onSelectClaim={(claim) => setSelectedClaimForModal(claim)}
             onPracticeClaim={handlePracticeClaim}
             onLoadSampleResume={() => {

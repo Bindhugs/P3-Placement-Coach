@@ -24,6 +24,8 @@ import { extractTextFromFile } from "../../services/fileExtractor";
 
 export const ParseView = ({ 
   resumeData, 
+  selectedRole,
+  experienceLevel,
   onSelectClaim, 
   onPracticeClaim, 
   onLoadSampleResume, 
@@ -52,6 +54,117 @@ export const ParseView = ({
   const experience = resumeData?.raw?.experience || [];
   const presentationIssues = resumeData?.presentationIssues || [];
   const detectedSections = resumeData?.detectedSections || ["Education", "Technical Skills", "Projects", "Experience"];
+    // Recruiter X-Ray summary
+  const recruiterStrengths = [];
+
+  if (skills.languages?.length > 0) {
+    recruiterStrengths.push(
+      `${skills.languages.length} programming language${skills.languages.length > 1 ? "s" : ""} detected`
+    );
+  }
+
+  if (projects.length > 0) {
+    recruiterStrengths.push(
+      `${projects.length} project${projects.length > 1 ? "s" : ""} with technical evidence`
+    );
+  }
+
+  if (detectedSections.includes("Experience")) {
+    recruiterStrengths.push("Experience section is present");
+  }
+
+  if (detectedSections.includes("Technical Skills")) {
+    recruiterStrengths.push("Technical skills are clearly listed");
+  }
+
+  const recruiterAttention = [];
+
+  if (claims.length > 0) {
+    const highRisk = claims.filter(c => c.riskLevel === "HIGH").length;
+    const mediumRisk = claims.filter(c => c.riskLevel === "MEDIUM").length;
+
+    if (highRisk > 0) {
+      recruiterAttention.push(
+        `${highRisk} high-risk claim${highRisk > 1 ? "s" : ""} may require strong interview evidence`
+      );
+    }
+
+    if (mediumRisk > 0) {
+      recruiterAttention.push(
+        `${mediumRisk} medium-risk claim${mediumRisk > 1 ? "s" : ""} need clearer explanation`
+      );
+    }
+  }
+
+  if (projects.length > 0 && projects.some(p => !p.bullets || p.bullets.length < 2)) {
+    recruiterAttention.push("Some projects could use more supporting details");
+  }
+
+  if (presentationIssues.length > 0) {
+    recruiterAttention.push(
+      `${presentationIssues.length} presentation issue${presentationIssues.length > 1 ? "s" : ""} detected`
+    );
+  }
+
+  const topRiskyClaims = claims
+    .filter(c => c.riskLevel === "HIGH" || c.riskLevel === "MEDIUM")
+    .slice(0, 3);
+      // Role-specific recruiter checks
+  const allResumeText = JSON.stringify(resumeData || {}).toLowerCase();
+  const roleChecks = {
+    "AI/ML Engineer": {
+      keywords: ["python", "machine learning", "ml", "model", "numpy", "pandas", "tensorflow", "pytorch"],
+      label: "AI/ML evidence"
+    },
+    "Software Developer": {
+      keywords: ["python", "java", "c++", "javascript", "api", "backend", "database", "git"],
+      label: "software development evidence"
+    },
+    "Data Analyst": {
+      keywords: ["python", "sql", "excel", "pandas", "numpy", "tableau", "power bi", "data"],
+      label: "data analysis evidence"
+    },
+    "Data Scientist": {
+      keywords: ["python", "machine learning", "statistics", "pandas", "numpy", "model", "data"],
+      label: "data science evidence"
+    },
+    "Web Developer": {
+      keywords: ["html", "css", "javascript", "react", "frontend", "backend", "api"],
+      label: "web development evidence"
+    },
+    "DevOps / Cloud": {
+      keywords: ["docker", "aws", "azure", "cloud", "linux", "ci/cd", "kubernetes", "deployment"],
+      label: "DevOps/cloud evidence"
+    },
+    "QA / Testing": {
+      keywords: ["testing", "test", "selenium", "automation", "qa", "debugging", "jest"],
+      label: "testing evidence"
+    },
+    "Other": {
+      keywords: [],
+      label: "role-specific evidence"
+    }
+  };
+
+  const selectedRoleCheck =
+    roleChecks[selectedRole] || roleChecks["Other"];
+
+  const matchedRoleKeywords =
+    selectedRoleCheck.keywords.filter(keyword =>
+      allResumeText.includes(keyword)
+    );
+
+  const missingRoleKeywords =
+    selectedRoleCheck.keywords.filter(keyword =>
+      !allResumeText.includes(keyword)
+    );
+
+  const roleMatchMessage =
+    selectedRole === "Other"
+      ? "Add a specific target role to get role-focused checks."
+      : matchedRoleKeywords.length > 0
+        ? `${matchedRoleKeywords.length} relevant signals found for ${selectedRole}.`
+        : `Very little ${selectedRoleCheck.label} was detected in the resume.`;
 
   const filteredClaims = claims.filter(c => {
     if (filterRisk === "ALL") return true;
@@ -417,6 +530,194 @@ export const ParseView = ({
       </div>
 
       {/* Sub-Navigation Tabs: Risky Claims vs Resume Overview vs Presentation Diagnostics */}
+            {/* Recruiter Target & X-Ray Summary */}
+      <div className="space-y-4">
+
+        {/* Target */}
+        <div className="rounded-2xl border border-cyan-500/20 bg-cyan-950/10 p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-mono uppercase tracking-widest text-cyan-400 font-bold">
+                TARGET PROFILE
+              </p>
+
+              <h2 className="text-lg font-bold text-white mt-1">
+                {selectedRole || "Role not selected"}
+              </h2>
+
+              <p className="text-xs text-slate-400 mt-1">
+                {experienceLevel || "Experience level not selected"}
+              </p>
+            </div>
+
+            <div className="text-xs text-slate-400">
+              Recruiter analysis is based on your resume evidence
+            </div>
+          </div>
+        </div>
+
+        {/* Recruiter X-Ray */}
+        <div className="rounded-2xl border border-slate-800 bg-[#0a0f1c] p-5">
+          <div className="flex items-center gap-2 mb-5">
+            <Sparkles className="h-5 w-5 text-cyan-400" />
+
+            <div>
+              <h2 className="text-base font-bold text-white">
+                Recruiter X-Ray
+              </h2>
+
+              <p className="text-[11px] text-slate-400">
+                What stands out before the interview — and what may get questioned.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            {/* Strengths */}
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/10 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+
+                <h3 className="text-xs font-bold text-emerald-300 uppercase tracking-wider">
+                  Strengths
+                </h3>
+              </div>
+
+              <div className="space-y-2">
+                {recruiterStrengths.length > 0 ? (
+                  recruiterStrengths.map((item, index) => (
+                    <div
+                      key={index}
+                      className="flex items-start gap-2 text-xs text-slate-300"
+                    >
+                      <span className="text-emerald-400 mt-0.5">✓</span>
+                      <span>{item}</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-500">
+                    Not enough resume evidence yet.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Needs Attention */}
+            <div className="rounded-xl border border-amber-500/20 bg-amber-950/10 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <AlertTriangle className="h-4 w-4 text-amber-400" />
+
+                <h3 className="text-xs font-bold text-amber-300 uppercase tracking-wider">
+                  Needs Attention
+                </h3>
+              </div>
+
+              <div className="space-y-2">
+                {recruiterAttention.length > 0 ? (
+                  recruiterAttention.map((item, index) => (
+                    <div
+                      key={index}
+                      className="flex items-start gap-2 text-xs text-slate-300"
+                    >
+                      <span className="text-amber-400 mt-0.5">!</span>
+                      <span>{item}</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-500">
+                    No major attention points detected.
+                  </p>
+                )}
+              </div>
+                          {/* Role Match */}
+            <div className="md:col-span-2 rounded-xl border border-cyan-500/20 bg-cyan-950/10 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Briefcase className="h-4 w-4 text-cyan-400" />
+
+                <h3 className="text-xs font-bold text-cyan-300 uppercase tracking-wider">
+                  Role Match
+                </h3>
+              </div>
+
+              <p className="text-xs text-slate-300 mb-3">
+                {roleMatchMessage}
+              </p>
+
+              {matchedRoleKeywords.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {matchedRoleKeywords.slice(0, 8).map((keyword) => (
+                    <span
+                      key={keyword}
+                      className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 text-[10px] text-emerald-300 font-mono"
+                    >
+                      ✓ {keyword}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {missingRoleKeywords.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-2">
+                    Evidence not detected
+                  </p>
+
+                  <div className="flex flex-wrap gap-2">
+                    {missingRoleKeywords.slice(0, 6).map((keyword) => (
+                      <span
+                        key={keyword}
+                        className="rounded-md bg-amber-500/10 border border-amber-500/20 px-2 py-1 text-[10px] text-amber-300 font-mono"
+                      >
+                        ! {keyword}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            </div>
+
+          </div>
+
+          {/* High-value claims */}
+          {topRiskyClaims.length > 0 && (
+            <div className="mt-4 rounded-xl border border-rose-500/20 bg-rose-950/10 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Flame className="h-4 w-4 text-rose-400" />
+
+                <h3 className="text-xs font-bold text-rose-300 uppercase tracking-wider">
+                  Claims Worth Defending
+                </h3>
+              </div>
+
+              <div className="space-y-2">
+                {topRiskyClaims.map((claim) => (
+                  <button
+                    key={claim.id}
+                    type="button"
+                    onClick={() => onPracticeClaim(claim)}
+                    className="w-full text-left rounded-lg border border-slate-800 bg-black/20 p-3 hover:border-cyan-500/40 transition-colors"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-xs text-slate-200 font-medium">
+                        "{claim.claim}"
+                      </span>
+
+                      <ChevronRight className="h-4 w-4 text-cyan-400 shrink-0" />
+                    </div>
+
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      Click to practice defending this claim
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+        </div>
+      </div>
       <div className="flex items-center justify-between border-b border-slate-800 pb-2">
         <div className="flex items-center space-x-2">
           <button
