@@ -6,7 +6,7 @@ export const AudioVisualizer = ({ isListening, duration = 0, fillerCount = 0 }) 
   const bars = [16, 28, 42, 22, 54, 38, 20, 48, 62, 35, 18, 50, 32, 24, 46, 20];
 
   return (
-    <div className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800/80 bg-slate-900/40">
+    <div className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-200 bg-white">
       
       {/* Waveform Bar Graphic */}
       <div className="flex items-center justify-center gap-1.5 h-14 w-full px-4 overflow-hidden">
@@ -16,7 +16,7 @@ export const AudioVisualizer = ({ isListening, duration = 0, fillerCount = 0 }) 
             className={`w-1 rounded-full transition-all duration-150 ${
               isListening
                 ? "bg-gradient-to-t from-cyan-500 to-blue-400"
-                : "bg-slate-700 h-2"
+                : "bg-slate-300 h-2"
             }`}
             style={{
               height: isListening 
@@ -29,7 +29,7 @@ export const AudioVisualizer = ({ isListening, duration = 0, fillerCount = 0 }) 
       </div>
 
       {/* Metrics Row */}
-      <div className="mt-3 flex items-center justify-between w-full max-w-sm px-2 text-xs border-t border-slate-800/60 pt-2 text-slate-400 font-mono">
+      <div className="mt-3 flex items-center justify-between w-full max-w-sm px-2 text-xs border-t border-slate-200 pt-2 text-slate-600 font-mono">
         <div className="flex items-center gap-1.5">
           {isListening ? (
             <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
@@ -41,7 +41,7 @@ export const AudioVisualizer = ({ isListening, duration = 0, fillerCount = 0 }) 
 
         <div className="flex items-center gap-3">
           <span>{Math.floor(duration / 60)}:{(duration % 60).toString().padStart(2, "0")}</span>
-          <span className={`${fillerCount > 2 ? "text-amber-400" : "text-slate-400"}`}>
+          <span className={`${fillerCount > 2 ? "text-amber-700" : "text-slate-600"}`}>
             Fillers: {fillerCount}
           </span>
         </div>

@@ -31,6 +31,7 @@ export const ParseView = ({
   selectedRole,
   experienceLevel,
   uploadedResumeFile,
+  isSampleResumeLoaded,
   onSelectClaim, 
   onPracticeClaim, 
   onLoadSampleResume, 
@@ -346,19 +347,19 @@ useEffect(() => {
     switch (level) {
       case "HIGH":
         return {
-          bg: "bg-rose-500/10 text-rose-400 border-rose-500/30",
+          bg: "bg-rose-50 text-rose-700 border-rose-200",
           icon: Flame,
           label: "HIGH RISK"
         };
       case "MEDIUM":
         return {
-          bg: "bg-amber-500/10 text-amber-400 border-amber-500/30",
+          bg: "bg-amber-50 text-amber-700 border-amber-200",
           icon: AlertTriangle,
           label: "MEDIUM RISK"
         };
       default:
         return {
-          bg: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+          bg: "bg-emerald-50 text-emerald-700 border-emerald-200",
           icon: CheckCircle,
           label: "LOW RISK"
         };
@@ -366,21 +367,21 @@ useEffect(() => {
   };
 
   return (
-    <div className="space-y-8 pb-16">
+    <div className="space-y-8 pb-16 text-slate-800">
       
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-800 pb-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-200 pb-6">
         <div>
           <div className="flex items-center gap-2">
-            <span className="font-mono text-xs font-bold text-cyan-400 uppercase tracking-widest">
+            <span className="font-mono text-xs font-bold text-cyan-700 uppercase tracking-widest">
               PARSE
             </span>
             <span className="text-slate-600">/</span>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
               Recruiter's X-Ray
             </h1>
           </div>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">
+          <p className="text-xs sm:text-sm text-slate-600 mt-1">
             The goal is not to judge if your resume looks impressive. The goal is:{" "}
             <strong className="text-cyan-300 font-semibold">Can you confidently defend what you wrote?</strong>
           </p>
@@ -392,7 +393,7 @@ useEffect(() => {
           
           <button
             onClick={() => setShowPasteBox(!showPasteBox)}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-300 hover:text-white transition-colors"
+            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
           >
             <FileText className="h-3.5 w-3.5" />
             <span>Paste Text</span>
@@ -402,15 +403,15 @@ useEffect(() => {
 
       {/* Loading State Banner (When actively extracting PDF/DOCX/TXT) */}
       {isAnalyzingFile && (
-        <div className="rounded-2xl border border-cyan-500/50 bg-gradient-to-r from-cyan-950/50 via-slate-900/80 to-cyan-950/50 p-6 text-center space-y-3 shadow-xl shadow-cyan-950/30 animate-pulse-subtle">
+        <div className="rounded-2xl border border-cyan-200 bg-gradient-to-r from-cyan-50 via-slate-50 to-cyan-50 p-6 text-center space-y-3 shadow-xl shadow-cyan-500/10 animate-pulse-subtle">
           <div className="flex items-center justify-center gap-3">
             <RefreshCw className="h-6 w-6 text-cyan-400 animate-spin" />
-            <span className="text-base font-bold text-white">Analyzing your resume...</span>
+            <span className="text-base font-bold text-slate-900">Analyzing your resume...</span>
           </div>
           <p className="text-xs text-cyan-300/90 font-mono">
             {analysisStatus || "Extracting text and identifying defensibility risk vectors in browser memory..."}
           </p>
-          <div className="max-w-md mx-auto w-full bg-slate-800/80 h-1.5 rounded-full overflow-hidden">
+          <div className="max-w-md mx-auto w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
             <div className="bg-gradient-to-r from-cyan-500 to-blue-500 h-full w-2/3 animate-pulse rounded-full" />
           </div>
         </div>
@@ -418,24 +419,24 @@ useEffect(() => {
 
       {/* Success Banner (Preview after extraction) */}
       {analysisSuccess && !isAnalyzingFile && (
-        <div className="rounded-2xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/40 via-slate-900/60 to-emerald-950/30 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 via-white to-emerald-50 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-start sm:items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 shrink-0">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 shrink-0">
               <FileCheck2 className="h-5 w-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h4 className="text-sm font-bold text-white">
+                <h4 className="text-sm font-bold text-slate-900">
                   {analysisSuccess.message}
                 </h4>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
                   {analysisSuccess.fileType}
                 </span>
               </div>
-              <p className="text-xs text-slate-300 mt-0.5 font-mono">
-                Source: <span className="text-white font-semibold">{analysisSuccess.fileName}</span> ·{" "}
-                <span className="text-emerald-400 font-bold">{analysisSuccess.sectionCount} sections detected</span> ·{" "}
-                <span className="text-cyan-400 font-bold">{analysisSuccess.claimCount} claims identified</span>
+              <p className="text-xs text-slate-600 mt-0.5 font-mono">
+                Source: <span className="text-slate-900 font-semibold">{analysisSuccess.fileName}</span> ·{" "}
+                <span className="text-emerald-700 font-bold">{analysisSuccess.sectionCount} sections detected</span> ·{" "}
+                <span className="text-cyan-700 font-bold">{analysisSuccess.claimCount} claims identified</span>
               </p>
             </div>
           </div>
@@ -459,7 +460,7 @@ useEffect(() => {
 
           <button
           onClick={() => setAnalysisSuccess(null)}
-          className="text-xs text-slate-400 hover:text-white px-2 py-1"
+          className="text-xs text-slate-600 hover:text-slate-900 px-2 py-1"
           >
         Dismiss
         </button>
@@ -469,18 +470,18 @@ useEffect(() => {
 
       {/* Error Alert Banner (When extraction fails or file is invalid) */}
       {uploadError && !isAnalyzingFile && (
-        <div className="rounded-2xl border border-rose-500/50 bg-rose-950/30 p-5 space-y-2">
-          <div className="flex items-center gap-2 text-rose-400 font-bold text-sm">
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 space-y-2">
+          <div className="flex items-center gap-2 text-rose-700 font-bold text-sm">
             <XCircle className="h-5 w-5 shrink-0" />
             <span>Resume Parsing Failed</span>
           </div>
-          <p className="text-xs text-slate-200 leading-relaxed pl-7">
+          <p className="text-xs text-slate-700 leading-relaxed pl-7">
             {uploadError}
           </p>
           <div className="pl-7 pt-1 flex items-center gap-3">
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="text-xs font-semibold text-rose-300 underline hover:text-white"
+              className="text-xs font-semibold text-rose-700 underline hover:text-rose-900"
             >
               Try another file
             </button>
@@ -497,25 +498,25 @@ useEffect(() => {
 
       {/* Paste Text Collapsible Box */}
       {showPasteBox && (
-        <form onSubmit={handlePasteSubmit} className="rounded-2xl border border-slate-800 bg-[#0a0f1c] p-5 space-y-3">
+        <form onSubmit={handlePasteSubmit} className="rounded-2xl border border-slate-200 bg-white p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-300">
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
               Paste Resume Bullet Points or Full Text
             </label>
-            <span className="text-[11px] text-slate-400">Processed locally in your browser</span>
+            <span className="text-[11px] text-slate-600">Processed locally in your browser</span>
           </div>
           <textarea
             rows={5}
             value={pastedText}
             onChange={(e) => setPastedText(e.target.value)}
             placeholder="Paste your resume or project bullets here, e.g. 'Developed scalable e-commerce backend handling payments using Stripe webhooks...'"
-            className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-xs text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
+            className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-900 placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
           />
           <div className="flex justify-end gap-2">
             <button
               type="button"
               onClick={() => setShowPasteBox(false)}
-              className="rounded-lg border border-slate-800 px-3 py-1.5 text-xs text-slate-400 hover:text-white"
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:text-slate-900"
             >
               Cancel
             </button>
@@ -538,28 +539,28 @@ useEffect(() => {
         onDrop={handleDrop}
         className={`rounded-2xl border-2 border-dashed p-6 text-center transition-all ${
           dragActive
-            ? "border-cyan-400 bg-cyan-950/30 scale-[1.01]"
-            : "border-slate-800/90 bg-[#080d19]/60 hover:border-slate-700"
+            ? "border-cyan-500 bg-cyan-50 scale-[1.01]"
+            : "border-slate-200 bg-white hover:border-slate-300"
         }`}
       >
         <div className="flex flex-col items-center justify-center space-y-2.5 max-w-lg mx-auto">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-50 border border-cyan-200 text-cyan-700">
             <UploadCloud className="h-6 w-6" />
           </div>
           <div>
-            <p className="text-sm text-slate-200 font-bold">
+            <p className="text-sm text-slate-900 font-bold">
               Upload your resume for X-Ray Defensibility Analysis
             </p>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Supports <strong className="text-slate-300">PDF (.pdf)</strong>, <strong className="text-slate-300">Word (.docx)</strong>, and <strong className="text-slate-300">Text (.txt)</strong>
+            <p className="text-xs text-slate-600 mt-0.5">
+              Supports <strong className="text-slate-700">PDF (.pdf)</strong>, <strong className="text-slate-700">Word (.docx)</strong>, and <strong className="text-slate-700">Text (.txt)</strong>
             </p>
           </div>
-          <p className="text-[11px] text-emerald-400/90 font-medium">
+          <p className="text-[11px] text-emerald-700 font-medium">
             🔒 Local-First: Text extraction runs 100% inside your browser memory.
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
-            <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-cyan-500/20 hover:from-cyan-400 hover:to-blue-500 transition-all">
+            <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-700 px-4 py-2 text-xs font-bold text-white shadow-md shadow-cyan-500/20 hover:from-cyan-500 hover:to-blue-600 transition-all">
               <span>Choose Resume File</span>
               <input
                 ref={fileInputRef}
@@ -574,19 +575,19 @@ useEffect(() => {
             <button
               type="button"
               onClick={handleLoadSample}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/90 px-3.5 py-2 text-xs font-semibold text-slate-300 hover:border-cyan-500/40 hover:text-white transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:border-cyan-300 hover:text-cyan-800 transition-colors"
             >
-              <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
+              <Sparkles className="h-3.5 w-3.5 text-cyan-700" />
               <span>Or Load Sample Resume</span>
             </button>
           </div>
         </div>
       </div>
         )}
-              {(analysisSuccess || uploadedResumeFile) && (
+              {(analysisSuccess || uploadedResumeFile || isSampleResumeLoaded) && (
         <>
       {/* Sub-Navigation Tabs: Risky Claims vs Resume Overview vs Presentation Diagnostics */}
-<div className="flex items-center gap-2 border-b border-slate-800 pb-3 mb-6 overflow-x-auto">
+<div className="flex items-center gap-2 border-b border-slate-200 pb-3 mb-6 overflow-x-auto">
   {[
     { id: "claims", label: "Risky Claims" },
     { id: "overview", label: "Resume Overview" },
@@ -599,7 +600,7 @@ useEffect(() => {
       className={`px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
         activeTab === tab.id
           ? "bg-cyan-500 text-slate-950"
-          : "bg-slate-900 text-slate-400 border border-slate-800 hover:text-white hover:border-slate-700"
+          : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300"
       }`}
     >
       {tab.label}
@@ -608,82 +609,86 @@ useEffect(() => {
 </div>
 {/* Resume + Recruiter X-Ray */}
 {activeTab === "overview" && (
-  <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-6">
+  <div className={`grid grid-cols-1 ${isSampleResumeLoaded ? "" : "lg:grid-cols-[3fr_2fr]"} gap-6`}>
 
+  {!isSampleResumeLoaded && (
+  <>
   {/* LEFT — Resume */}
-  <div className="rounded-2xl border border-slate-800 bg-slate-950/60 overflow-hidden">
-    <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
+  <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+    <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
       <div>
-        <p className="text-[10px] font-mono uppercase tracking-widest text-cyan-400 font-bold">
+        <p className="text-[10px] font-mono uppercase tracking-widest text-cyan-700 font-bold">
           RESUME PREVIEW
         </p>
 
-        <h3 className="text-sm font-bold text-white mt-1">
-          {uploadedResumeFile?.name || "Uploaded Resume"}
+        <h3 className="text-sm font-bold text-slate-900 mt-1">
+          {isSampleResumeLoaded ? "Sample Resume (DEMO)" : uploadedResumeFile?.name || "Uploaded Resume"}
         </h3>
       </div>
 
-      <span className="text-[10px] font-mono text-slate-500">
-        PDF
+      <span className="text-[10px] font-mono text-slate-600">
+        {isSampleResumeLoaded ? "DEMO" : "PDF"}
       </span>
     </div>
 
     {resumePreviewUrl ? (
-  <div className="h-[700px] bg-slate-900 overflow-hidden">
+  <div className="h-[700px] bg-slate-50 overflow-hidden">
   <iframe
     src={`${resumePreviewUrl}#toolbar=0&navpanes=0`}
     title="Resume Preview"
     className="w-full h-full border-0"
   />
 </div>
-) : (
-      <div className="h-[700px] flex items-center justify-center text-slate-500 text-sm">
+    ) : (
+      <div className="h-[700px] flex items-center justify-center text-slate-600 text-sm">
         Upload a PDF to preview your resume here.
       </div>
     )}
   </div>
+  </>
+  )}
 
   {/* RIGHT — Recruiter X-Ray */}
   <div className="space-y-4">
 
     {/* Target Profile */}
-    <div className="rounded-2xl border border-cyan-500/20 bg-cyan-950/10 p-5">
-      <p className="text-[10px] font-mono uppercase tracking-widest text-cyan-400 font-bold">
+    <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-5">
+      <p className="text-[10px] font-mono uppercase tracking-widest text-cyan-700 font-bold">
         TARGET PROFILE
       </p>
 
-      <h2 className="text-lg font-bold text-white mt-1">
+      <h2 className="text-lg font-bold text-slate-900 mt-1">
         {selectedRole || "Role not selected"}
       </h2>
 
-      <p className="text-xs text-slate-400 mt-1">
+      <p className="text-xs text-slate-600 mt-1">
         {experienceLevel || "Experience level not selected"}
       </p>
     </div>
 
     {/* Recruiter X-Ray */}
-    <div className="rounded-2xl border border-slate-800 bg-[#0a0f1c] p-5">
+    <div className="rounded-2xl border border-slate-200 bg-white p-5">
 
       <div className="flex items-center gap-2 mb-5">
-        <Sparkles className="h-5 w-5 text-cyan-400" />
+        <Sparkles className="h-5 w-5 text-cyan-700" />
 
         <div>
-          <h2 className="text-base font-bold text-white">
+          <h2 className="text-base font-bold text-slate-900">
             Recruiter X-Ray
           </h2>
 
-          <p className="text-[11px] text-slate-400">
+          <p className="text-[11px] text-slate-600">
             What stands out before the interview — and what may get questioned.
           </p>
         </div>
       </div>
 
       {/* Strengths */}
-      <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/10 p-4 mb-4">
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 mb-4">
         <div className="flex items-center gap-2 mb-3">
-          <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+          <CheckCircle2 className="h-4 w-4 text-emerald-700" />
 
-          <h3 className="text-xs font-bold text-emerald-300 uppercase tracking-wider">
+          <h3 className="text-xs font-bold text-emerald-700 uppercase tracking-wider">
             Strengths
           </h3>
         </div>
@@ -693,14 +698,14 @@ useEffect(() => {
             recruiterStrengths.map((item, index) => (
               <div
                 key={index}
-                className="flex items-start gap-2 text-xs text-slate-300"
+                className="flex items-start gap-2 text-xs text-slate-700"
               >
-                <span className="text-emerald-400 mt-0.5">✓</span>
+                <span className="text-emerald-600 mt-0.5">✓</span>
                 <span>{item}</span>
               </div>
             ))
           ) : (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-600">
               Not enough resume evidence yet.
             </p>
           )}
@@ -708,11 +713,11 @@ useEffect(() => {
       </div>
 
       {/* Needs Attention */}
-      <div className="rounded-xl border border-amber-500/20 bg-amber-950/10 p-4 mb-4">
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 mb-4">
         <div className="flex items-center gap-2 mb-3">
-          <AlertTriangle className="h-4 w-4 text-amber-400" />
+          <AlertTriangle className="h-4 w-4 text-amber-700" />
 
-          <h3 className="text-xs font-bold text-amber-300 uppercase tracking-wider">
+          <h3 className="text-xs font-bold text-amber-700 uppercase tracking-wider">
             Needs Attention
           </h3>
         </div>
@@ -722,14 +727,14 @@ useEffect(() => {
             recruiterAttention.map((item, index) => (
               <div
                 key={index}
-                className="flex items-start gap-2 text-xs text-slate-300"
+                className="flex items-start gap-2 text-xs text-slate-700"
               >
-                <span className="text-amber-400 mt-0.5">!</span>
+                <span className="text-amber-600 mt-0.5">!</span>
                 <span>{item}</span>
               </div>
             ))
           ) : (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-600">
               No major attention points detected.
             </p>
           )}
@@ -737,16 +742,16 @@ useEffect(() => {
       </div>
 
       {/* Role Match */}
-      <div className="rounded-xl border border-cyan-500/20 bg-cyan-950/10 p-4">
+      <div className="rounded-xl border border-cyan-200 bg-cyan-50 p-4">
         <div className="flex items-center gap-2 mb-3">
-          <Briefcase className="h-4 w-4 text-cyan-400" />
+          <Briefcase className="h-4 w-4 text-cyan-700" />
 
-          <h3 className="text-xs font-bold text-cyan-300 uppercase tracking-wider">
+          <h3 className="text-xs font-bold text-cyan-700 uppercase tracking-wider">
             Role Match
           </h3>
         </div>
 
-        <p className="text-xs text-slate-300 mb-3">
+        <p className="text-xs text-slate-700 mb-3">
           {roleMatchMessage}
         </p>
 
@@ -755,7 +760,7 @@ useEffect(() => {
             {matchedRoleKeywords.slice(0, 8).map((keyword) => (
               <span
                 key={keyword}
-                className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 text-[10px] text-emerald-300 font-mono"
+                className="rounded-md bg-emerald-50 border border-emerald-200 px-2 py-1 text-[10px] text-emerald-700 font-mono"
               >
                 ✓ {keyword}
               </span>
@@ -765,7 +770,7 @@ useEffect(() => {
 
         {missingRoleKeywords.length > 0 && (
           <div className="mt-3">
-            <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-2">
+            <p className="text-[10px] uppercase tracking-wider text-slate-600 mb-2">
               Evidence not detected
             </p>
 
@@ -773,7 +778,7 @@ useEffect(() => {
               {missingRoleKeywords.slice(0, 6).map((keyword) => (
                 <span
                   key={keyword}
-                  className="rounded-md bg-amber-500/10 border border-amber-500/20 px-2 py-1 text-[10px] text-amber-300 font-mono"
+                  className="rounded-md bg-amber-50 border border-amber-200 px-2 py-1 text-[10px] text-amber-700 font-mono"
                 >
                   ! {keyword}
                 </span>
@@ -789,11 +794,11 @@ useEffect(() => {
 
           {/* High-value claims — only visible in Risky Claims tab */}
 {activeTab === "claims" && topRiskyClaims.length > 0 && (
-  <div className="mt-4 rounded-xl border border-rose-500/20 bg-rose-950/10 p-4">
+  <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
     <div className="flex items-center gap-2 mb-3">
-      <Flame className="h-4 w-4 text-rose-400" />
+      <Flame className="h-4 w-4 text-rose-700" />
 
-      <h3 className="text-xs font-bold text-rose-300 uppercase tracking-wider">
+      <h3 className="text-xs font-bold text-rose-700 uppercase tracking-wider">
         Claims Worth Defending
       </h3>
     </div>
@@ -802,9 +807,9 @@ useEffect(() => {
       {topRiskyClaims.map((claim) => (
         <div
           key={claim.id}
-          className="rounded-lg border border-slate-800 bg-black/20 p-3"
+          className="rounded-lg border border-slate-200 bg-white p-3"
         >
-          <p className="text-xs text-slate-200 font-mono">
+          <p className="text-xs text-slate-900 font-mono">
             "{claim.claim}"
           </p>
         </div>
@@ -815,16 +820,16 @@ useEffect(() => {
         {/* Risk Filter (only visible when in Claims tab) */}
         {activeTab === "claims" && (
           <div className="flex items-center gap-1 text-xs">
-            <Filter className="h-3.5 w-3.5 text-slate-400 hidden sm:inline" />
-            <span className="text-[11px] text-slate-400 mr-1 hidden sm:inline">Filter:</span>
+            <Filter className="h-3.5 w-3.5 text-slate-600 hidden sm:inline" />
+            <span className="text-[11px] text-slate-600 mr-1 hidden sm:inline">Filter:</span>
             {["ALL", "HIGH", "MEDIUM", "LOW"].map((level) => (
               <button
                 key={level}
                 onClick={() => setFilterRisk(level)}
                 className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-all ${
                   filterRisk === level
-                    ? "bg-cyan-500 text-slate-950"
-                    : "bg-slate-850 text-slate-400 hover:text-white border border-slate-800"
+                    ? "bg-cyan-700 text-white"
+                    : "bg-white text-slate-600 hover:text-cyan-800 border border-slate-200 hover:border-cyan-300"
                 }`}
               >
                 {level}
@@ -835,11 +840,11 @@ useEffect(() => {
       {/* Tab 1: Risky Claims Grid */}
       {activeTab === "claims" && (
         <div ref={claimsSectionRef} className="space-y-4">
-          <div className="flex items-center justify-between text-xs text-slate-400 px-1">
+          <div className="flex items-center justify-between text-xs text-slate-600 px-1">
             <span>
               Showing {filteredClaims.length} of {claims.length} detected claims
             </span>
-            <span className="text-[11px] text-cyan-400">
+            <span className="text-[11px] text-cyan-700">
               Click any card to inspect cross-examination questions
             </span>
           </div>
@@ -853,7 +858,7 @@ useEffect(() => {
                 <div
                   key={claim.id}
                   onClick={() => onSelectClaim(claim)}
-                  className="rounded-2xl border border-slate-800 bg-[#0a0f1c] p-5 hover:border-cyan-500/50 hover:bg-[#0d1424] transition-all cursor-pointer group flex flex-col justify-between space-y-4 relative overflow-hidden"
+                  className="rounded-2xl border border-slate-200 bg-white p-5 hover:border-cyan-500/50 hover:bg-slate-50 transition-all cursor-pointer group flex flex-col justify-between space-y-4 relative overflow-hidden"
                 >
                   <div className="space-y-3">
                     {/* Header line with badge and category */}
@@ -862,31 +867,31 @@ useEffect(() => {
                         <BadgeIcon className="h-3 w-3" />
                         {badge.label}
                       </span>
-                      <span className="text-[11px] font-mono text-slate-400">
+                      <span className="text-[11px] font-mono text-slate-600">
                         {claim.sourceProject || "Project Claim"}
                       </span>
                     </div>
 
                     {/* The exact claim */}
-                    <p className="text-xs font-semibold text-slate-100 group-hover:text-cyan-200 transition-colors leading-relaxed font-mono">
+                    <p className="text-xs font-semibold text-slate-900 group-hover:text-cyan-800 transition-colors leading-relaxed font-mono">
                       "{claim.claim}"
                     </p>
 
                     {/* Recruiter's Sniff Test */}
-                    <div className="rounded-xl border border-slate-800/80 bg-black/30 p-3 space-y-1.5">
-                      <div className="flex items-center gap-1.5 text-slate-300 font-bold text-[11px]">
-                        <HelpCircle className="h-3.5 w-3.5 text-amber-400" />
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-slate-700 font-bold text-[11px]">
+                        <HelpCircle className="h-3.5 w-3.5 text-amber-600" />
                         <span>Why an interviewer will question it:</span>
                       </div>
-                      <p className="text-[11px] text-slate-400 leading-snug line-clamp-2">
+                      <p className="text-[11px] text-slate-600 leading-snug line-clamp-2">
                         {claim.recruiterSuspicion}
                       </p>
                     </div>
                   </div>
 
                   {/* Footer Action */}
-                  <div className="flex items-center justify-between pt-3 border-t border-slate-800/60 text-xs">
-                    <span className="text-[11px] text-slate-500">
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-200 text-xs">
+                    <span className="text-[11px] text-slate-600">
                       {claim.likelyQuestions?.length || 3} follow-up questions
                     </span>
                     <button
@@ -895,7 +900,7 @@ useEffect(() => {
                         e.stopPropagation();
                         onPracticeClaim(claim);
                       }}
-                      className="flex items-center gap-1 text-cyan-400 group-hover:text-cyan-300 font-semibold"
+                      className="flex items-center gap-1 text-cyan-700 group-hover:text-cyan-800 font-semibold"
                     >
                       <span>Practice in Hot Seat</span>
                       <ChevronRight className="h-4 w-4 transform group-hover:translate-x-0.5 transition-transform" />
@@ -910,36 +915,36 @@ useEffect(() => {
 
       {/* Tab 2: Resume Overview */}
       {activeTab === "overview" && (
-        <div className="rounded-2xl border border-slate-800 bg-[#0a0f1c] p-6 space-y-6">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-6">
           
           {/* Candidate Profile Bar */}
-          <div className="border-b border-slate-800 pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="border-b border-slate-200 pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                 <span>{candidate.name || "Student Candidate"}</span>
                 {candidate.gpa && (
-                  <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono">
+                  <span className="text-xs px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-700 font-mono">
                     GPA {candidate.gpa}
                   </span>
                 )}
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-600 mt-0.5">
                 {candidate.degree || "B.Tech in Computer Science"} · {candidate.university || "University"}
               </p>
             </div>
-            <div className="text-xs font-mono text-slate-400">
-              <span className="text-emerald-400">Active Profile in Memory</span>
+            <div className="text-xs font-mono text-slate-600">
+              <span className="text-emerald-700">Active Profile in Memory</span>
             </div>
           </div>
 
           {/* Detected Sections Indicator */}
-          <div className="rounded-xl border border-slate-800/80 bg-slate-900/40 p-4">
-            <span className="text-[10px] font-mono uppercase text-slate-400 block mb-2 font-bold">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <span className="text-[10px] font-mono uppercase text-slate-600 block mb-2 font-bold">
               Detected Resume Sections ({detectedSections.length})
             </span>
             <div className="flex flex-wrap gap-2">
               {detectedSections.map((sec, idx) => (
-                <span key={idx} className="rounded-md bg-slate-800 border border-slate-700 px-2.5 py-1 text-xs text-cyan-300 font-mono">
+                <span key={idx} className="rounded-md bg-cyan-50 border border-cyan-200 px-2.5 py-1 text-xs text-cyan-800 font-mono">
                   ✓ {sec}
                 </span>
               ))}
@@ -948,52 +953,52 @@ useEffect(() => {
 
           {/* Technical Skills Overview */}
           <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-3 flex items-center gap-2">
-              <Code2 className="h-4 w-4 text-cyan-400" />
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-3 flex items-center gap-2">
+              <Code2 className="h-4 w-4 text-cyan-700" />
               <span>Extracted Technical Skills</span>
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3">
-                <span className="text-[10px] font-mono uppercase text-slate-400 block mb-1">Languages</span>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <span className="text-[10px] font-mono uppercase text-slate-600 block mb-1">Languages</span>
                 <div className="flex flex-wrap gap-1.5">
                   {skills.languages && skills.languages.length > 0 ? (
                     skills.languages.map((s, idx) => (
-                      <span key={idx} className="rounded bg-slate-800 px-2 py-0.5 text-xs text-cyan-300 font-mono">
+                      <span key={idx} className="rounded bg-cyan-50 px-2 py-0.5 text-xs text-cyan-800 font-mono">
                         {s}
                       </span>
                     ))
                   ) : (
-                    <span className="text-xs text-slate-500 italic">None detected</span>
+                    <span className="text-xs text-slate-600 italic">None detected</span>
                   )}
                 </div>
               </div>
 
-              <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3">
-                <span className="text-[10px] font-mono uppercase text-slate-400 block mb-1">Frameworks</span>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <span className="text-[10px] font-mono uppercase text-slate-600 block mb-1">Frameworks</span>
                 <div className="flex flex-wrap gap-1.5">
                   {skills.frameworks && skills.frameworks.length > 0 ? (
                     skills.frameworks.map((s, idx) => (
-                      <span key={idx} className="rounded bg-slate-800 px-2 py-0.5 text-xs text-blue-300 font-mono">
+                      <span key={idx} className="rounded bg-blue-50 px-2 py-0.5 text-xs text-blue-800 font-mono">
                         {s}
                       </span>
                     ))
                   ) : (
-                    <span className="text-xs text-slate-500 italic">None detected</span>
+                    <span className="text-xs text-slate-600 italic">None detected</span>
                   )}
                 </div>
               </div>
 
-              <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3">
-                <span className="text-[10px] font-mono uppercase text-slate-400 block mb-1">Databases & Tools</span>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <span className="text-[10px] font-mono uppercase text-slate-600 block mb-1">Databases & Tools</span>
                 <div className="flex flex-wrap gap-1.5">
                   {(skills.databases || []).concat(skills.tools || []).length > 0 ? (
                     (skills.databases || []).concat(skills.tools || []).slice(0, 8).map((s, idx) => (
-                      <span key={idx} className="rounded bg-slate-800 px-2 py-0.5 text-xs text-emerald-300 font-mono">
+                      <span key={idx} className="rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-800 font-mono">
                         {s}
                       </span>
                     ))
                   ) : (
-                    <span className="text-xs text-slate-500 italic">None detected</span>
+                    <span className="text-xs text-slate-600 italic">None detected</span>
                   )}
                 </div>
               </div>
@@ -1002,27 +1007,27 @@ useEffect(() => {
 
           {/* Projects Overview */}
           <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-3 flex items-center gap-2">
-              <Layers className="h-4 w-4 text-cyan-400" />
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-3 flex items-center gap-2">
+              <Layers className="h-4 w-4 text-cyan-700" />
               <span>Parsed Projects</span>
             </h4>
             <div className="space-y-3">
               {projects.map((proj) => (
-                <div key={proj.id} className="rounded-xl border border-slate-800 bg-slate-900/30 p-4">
+                <div key={proj.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <h5 className="font-bold text-sm text-white">{proj.title}</h5>
-                    <span className="text-[11px] font-mono text-slate-400">{proj.timeline}</span>
+                    <h5 className="font-bold text-sm text-slate-900">{proj.title}</h5>
+                    <span className="text-[11px] font-mono text-slate-600">{proj.timeline}</span>
                   </div>
                   {proj.stack && proj.stack.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mb-2">
                       {proj.stack.map((t, idx) => (
-                        <span key={idx} className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-950/60 text-cyan-400 border border-cyan-800/40 font-mono">
+                        <span key={idx} className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-50 text-cyan-800 border border-cyan-200 font-mono">
                           {t}
                         </span>
                       ))}
                     </div>
                   )}
-                  <ul className="list-disc list-inside space-y-1 text-xs text-slate-300">
+                  <ul className="list-disc list-inside space-y-1 text-xs text-slate-700">
                     {proj.bullets?.map((b, idx) => (
                       <li key={idx} className="leading-relaxed">{b}</li>
                     ))}
@@ -1037,13 +1042,13 @@ useEffect(() => {
 
       {/* Tab 3: Presentation Diagnostics */}
       {activeTab === "formatting" && (
-        <div className="rounded-2xl border border-slate-800 bg-[#0a0f1c] p-6 space-y-4">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-4">
           <div>
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-amber-400" />
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-700" />
               <span>Resume Presentation & Formatting Diagnostics</span>
             </h3>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-slate-600 mt-1">
               Issues that make recruiters question credibility or cause engineering managers to skim over your work.
             </p>
           </div>
@@ -1052,25 +1057,25 @@ useEffect(() => {
             {presentationIssues.map((issue) => (
               <div 
                 key={issue.id}
-                className="rounded-xl border border-amber-900/30 bg-amber-950/10 p-4 space-y-2"
+                className="rounded-xl border border-amber-200 bg-white p-4 space-y-2"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-amber-300 font-mono">
+                    <span className="text-xs font-bold text-amber-800 font-mono">
                       {issue.title}
                     </span>
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-slate-50 text-slate-700 font-mono">
                       {issue.location}
                     </span>
                   </div>
-                  <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">
+                  <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">
                     {issue.type}
                   </span>
                 </div>
-                <p className="text-xs text-slate-300 leading-relaxed">
+                <p className="text-xs text-slate-700 leading-relaxed">
                   {issue.description}
                 </p>
-                <div className="rounded-lg bg-black/40 border border-slate-800 p-2 text-[11px] text-cyan-300 font-mono">
+                <div className="rounded-lg bg-cyan-50 border border-cyan-200 p-2 text-[11px] text-cyan-800 font-mono">
                   💡 Recommendation: {issue.recommendation}
                 </div>
               </div>

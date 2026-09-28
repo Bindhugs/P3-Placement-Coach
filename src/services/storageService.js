@@ -21,18 +21,14 @@ export const DEFAULT_SETTINGS = {
 };
 
 export const DEFAULT_STATS = {
-  readinessScore: 72,
-  claimsAnalyzed: 14,
-  sessionsCompleted: 4,
-  highRiskCount: 6,
-  mediumRiskCount: 4,
-  lowRiskCount: 4,
-  weakAreas: [
-    "Database Indexing & Query Plans",
-    "Transaction Idempotency & Error Handling",
-    "Architecture Terminology & Modularity"
-  ],
-  recommendedNextAction: "Practice technical follow-up questions on 'E-Commerce payment idempotency' with the Skeptical Tech Lead."
+  readinessScore: null,
+  claimsAnalyzed: 0,
+  sessionsCompleted: 0,
+  highRiskCount: 0,
+  mediumRiskCount: 0,
+  lowRiskCount: 0,
+  weakAreas: [],
+  recommendedNextAction: ""
 };
 
 class StorageService {

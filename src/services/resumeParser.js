@@ -206,11 +206,36 @@ export class ResumeParser {
           summary: lines.slice(0, 3).join(" ")
         },
         skills: {
-          languages: detectedSkills.slice(0, 5),
-          frameworks: detectedSkills.slice(5, 10),
-          databases: detectedSkills.slice(10, 15),
-          tools: detectedSkills.slice(15, 20)
-        },
+  languages: detectedSkills.filter(skill =>
+    [
+      "Python", "JavaScript", "TypeScript", "Java",
+      "C++", "C#", "Go", "Rust", "HTML", "CSS"
+    ].includes(skill)
+  ),
+
+  frameworks: detectedSkills.filter(skill =>
+    [
+      "React", "Node.js", "Express", "Flask",
+      "FastAPI", "Django", "Spring Boot", "Next.js", "Tailwind"
+    ].includes(skill)
+  ),
+
+  databases: detectedSkills.filter(skill =>
+    [
+      "SQL", "MySQL", "PostgreSQL", "MongoDB",
+      "Redis", "SQLite", "DynamoDB"
+    ].includes(skill)
+  ),
+
+  tools: detectedSkills.filter(skill =>
+    [
+      "Docker", "Kubernetes", "AWS", "Azure", "GCP",
+      "Git", "GitHub", "Linux", "CI/CD",
+      "Pandas", "NumPy", "Scikit-Learn",
+      "TensorFlow", "PyTorch"
+    ].includes(skill)
+  )
+},
         projects: [
           {
             id: "extracted-proj-1",

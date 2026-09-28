@@ -2,15 +2,15 @@
 
 @layer base {
   :root {
-    --bg-dark: #080b12;
-    --card-dark: #0f1523;
-    --card-border: #1e293b;
-    --primary-cyan: #06b6d4;
-    --accent-emerald: #10b981;
-    --accent-amber: #f59e0b;
-    --accent-rose: #f43f5e;
-    --accent-purple: #8b5cf6;
-  }
+  --bg-dark: #0f172a;
+  --card-dark: #172033;
+  --card-border: #334155;
+  --primary-cyan: #60a5fa;
+  --accent-emerald: #34d399;
+  --accent-amber: #fbbf24;
+  --accent-rose: #fb7185;
+  --accent-purple: #a78bfa;
+}
 
   body {
     background-color: #060910;

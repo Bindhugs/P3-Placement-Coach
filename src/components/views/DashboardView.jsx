@@ -17,12 +17,14 @@ import {
 
 export const DashboardView = ({ 
   stats, 
+  hasAnalyzedResume,
   resumeData, 
   recentSessions, 
   onNavigate, 
   onPracticeClaim 
 }) => {
-  const readiness = stats?.readinessScore || 72;
+  const readinessScore = hasAnalyzedResume ? stats?.readinessScore : null;
+  const readiness = readinessScore ?? 0;
 
   // SVG Gauge calculations
   const radius = 58;
@@ -33,17 +35,17 @@ export const DashboardView = ({
     <div className="space-y-8 pb-16">
       
       {/* Header banner */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-800 pb-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-200 pb-6">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
               Student Placement Dashboard
             </h1>
-            <span className="rounded-full bg-cyan-500/10 border border-cyan-500/30 px-2.5 py-0.5 text-xs font-semibold text-cyan-400">
+            <span className="rounded-full bg-cyan-50 border border-cyan-200 px-2.5 py-0.5 text-xs font-semibold text-cyan-800">
               Coaching Mode
             </span>
           </div>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">
+          <p className="text-xs sm:text-sm text-slate-600 mt-1">
             Real-time defensibility signals and targeted interview prep based on your analyzed resume claims.
           </p>
         </div>
@@ -51,15 +53,15 @@ export const DashboardView = ({
         <div className="flex items-center gap-3">
           <button
             onClick={() => onNavigate("parse")}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs font-semibold text-slate-200 hover:border-cyan-500/40 hover:text-white transition-all"
+            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:border-cyan-300 hover:text-slate-900 transition-all"
           >
-            <FileSearch className="h-3.5 w-3.5 text-cyan-400" />
+            <FileSearch className="h-3.5 w-3.5 text-cyan-700" />
             <span>Recruiter's X-Ray</span>
           </button>
 
           <button
             onClick={() => onNavigate("probe")}
-            className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-cyan-500/20 hover:from-cyan-400 hover:to-blue-500 transition-all"
+            className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-700 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-cyan-500/20 hover:from-cyan-500 hover:to-blue-600 transition-all"
           >
             <Mic2 className="h-3.5 w-3.5" />
             <span>Enter Hot Seat</span>
@@ -71,10 +73,10 @@ export const DashboardView = ({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Readiness Circular Gauge Card */}
-        <div className="rounded-2xl border border-slate-800 bg-[#0a0f1c] p-6 flex flex-col items-center text-center relative overflow-hidden">
-          <div className="w-full flex items-center justify-between text-xs text-slate-400 mb-2">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 flex flex-col items-center text-center relative overflow-hidden">
+          <div className="w-full flex items-center justify-between text-xs text-slate-600 mb-2">
             <span className="font-semibold uppercase tracking-wider">Interview Readiness</span>
-            <span className="text-[11px] text-cyan-400">Coaching Metric</span>
+            <span className="text-[11px] text-cyan-700">Coaching Metric</span>
           </div>
 
           {/* Circular SVG Gauge */}
@@ -84,7 +86,7 @@ export const DashboardView = ({
                 cx="72"
                 cy="72"
                 r={radius}
-                stroke="#1e293b"
+                stroke="#e2e8f0"
                 strokeWidth="10"
                 fill="transparent"
               />
@@ -102,84 +104,94 @@ export const DashboardView = ({
               />
             </svg>
             <div className="absolute flex flex-col items-center">
-              <span className="text-3xl font-black text-white font-mono">{readiness}%</span>
-              <span className="text-[11px] font-medium text-emerald-400">
-                {readiness >= 75 ? "Defensible" : "Needs Practice"}
+              <span className="text-3xl font-black text-slate-900 font-mono">
+                {readinessScore === null ? "—" : `${readiness}%`}
+              </span>
+              <span className="text-[11px] font-medium text-emerald-700">
+                {readinessScore === null ? "Not yet measured" : readiness >= 75 ? "Defensible" : "Needs Practice"}
               </span>
             </div>
           </div>
 
-          <p className="text-[11px] text-slate-400 leading-normal max-w-xs">
+          <p className="text-[11px] text-slate-600 leading-normal max-w-xs">
             Reflects demonstrated technical depth, answer structure (PAR), and vocal clarity across your practice rounds.
           </p>
 
-          <div className="mt-4 pt-4 border-t border-slate-800/80 w-full flex items-center justify-around text-xs">
+          <div className="mt-4 pt-4 border-t border-slate-200 w-full flex items-center justify-around text-xs">
             <div>
-              <span className="block text-slate-400 text-[10px] uppercase">Sessions</span>
-              <span className="font-bold text-white font-mono">{stats?.sessionsCompleted || 4}</span>
+              <span className="block text-slate-600 text-[10px] uppercase">Claims Analyzed</span>
+              <span className="font-bold text-slate-900 font-mono">
+                {hasAnalyzedResume ? stats?.claimsAnalyzed || 0 : 0}
+              </span>
             </div>
-            <div className="h-6 w-px bg-slate-800" />
+            <div className="h-6 w-px bg-slate-200" />
             <div>
-              <span className="block text-slate-400 text-[10px] uppercase">Claims Tested</span>
-              <span className="font-bold text-white font-mono">{stats?.claimsAnalyzed || 14}</span>
+              <span className="block text-slate-600 text-[10px] uppercase">Claims Tested</span>
+              <span className="font-bold text-slate-900 font-mono">0</span>
             </div>
           </div>
         </div>
 
         {/* Claims Risk Summary Card */}
-        <div className="rounded-2xl border border-slate-800 bg-[#0a0f1c] p-6 flex flex-col justify-between">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between text-xs text-slate-400 mb-4">
+            <div className="flex items-center justify-between text-xs text-slate-600 mb-4">
               <span className="font-semibold uppercase tracking-wider">Claims Risk Breakdown</span>
-              <button onClick={() => onNavigate("parse")} className="text-cyan-400 hover:underline">
+              <button onClick={() => onNavigate("parse")} className="text-cyan-700 hover:underline">
                 View All →
               </button>
             </div>
 
             <div className="space-y-3">
+              {hasAnalyzedResume ? (
+                <>
               {/* High Risk */}
-              <div className="flex items-center justify-between p-3 rounded-xl border border-rose-950/60 bg-rose-950/20">
+              <div className="flex items-center justify-between p-3 rounded-xl border border-rose-200 bg-rose-50">
                 <div className="flex items-center gap-2.5">
-                  <div className="h-2 w-2 rounded-full bg-rose-400" />
-                  <span className="text-xs font-semibold text-rose-300">High Defensibility Risk</span>
+                  <div className="h-2 w-2 rounded-full bg-rose-600" />
+                  <span className="text-xs font-semibold text-rose-800">High Defensibility Risk</span>
                 </div>
-                <span className="text-xs font-bold text-rose-400 font-mono">
-                  {stats?.highRiskCount || 6} claims
+                <span className="text-xs font-bold text-rose-700 font-mono">
+                  {stats?.highRiskCount ?? 0} claims
                 </span>
               </div>
 
               {/* Medium Risk */}
-              <div className="flex items-center justify-between p-3 rounded-xl border border-amber-950/60 bg-amber-950/20">
+              <div className="flex items-center justify-between p-3 rounded-xl border border-amber-200 bg-amber-50">
                 <div className="flex items-center gap-2.5">
-                  <div className="h-2 w-2 rounded-full bg-amber-400" />
-                  <span className="text-xs font-semibold text-amber-300">Medium Risk Probes</span>
+                  <div className="h-2 w-2 rounded-full bg-amber-600" />
+                  <span className="text-xs font-semibold text-amber-800">Medium Risk Probes</span>
                 </div>
-                <span className="text-xs font-bold text-amber-400 font-mono">
-                  {stats?.mediumRiskCount || 4} claims
+                <span className="text-xs font-bold text-amber-700 font-mono">
+                  {stats?.mediumRiskCount ?? 0} claims
                 </span>
               </div>
 
               {/* Low Risk */}
-              <div className="flex items-center justify-between p-3 rounded-xl border border-emerald-950/60 bg-emerald-950/20">
+              <div className="flex items-center justify-between p-3 rounded-xl border border-emerald-200 bg-emerald-50">
                 <div className="flex items-center gap-2.5">
-                  <div className="h-2 w-2 rounded-full bg-emerald-400" />
-                  <span className="text-xs font-semibold text-emerald-300">Low Risk / Solid Ground</span>
+                  <div className="h-2 w-2 rounded-full bg-emerald-600" />
+                  <span className="text-xs font-semibold text-emerald-800">Low Risk / Solid Ground</span>
                 </div>
-                <span className="text-xs font-bold text-emerald-400 font-mono">
-                  {stats?.lowRiskCount || 4} claims
+                <span className="text-xs font-bold text-emerald-700 font-mono">
+                  {stats?.lowRiskCount ?? 0} claims
                 </span>
               </div>
+                </>
+              ) : (
+                <p className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">
+                  Analyze your resume to see your claim risk breakdown.
+                </p>
+              )}
             </div>
           </div>
 
-          <p className="text-[11px] text-slate-400 mt-4 leading-normal">
+          <p className="text-[11px] text-slate-600 mt-4 leading-normal">
             High-risk claims include complex architectural phrases like <em>"scalable backend"</em> or <em>"collaborative filtering"</em>.
           </p>
         </div>
-
-        {/* Recommended Next Action Card */}
-        <div className="rounded-2xl border border-cyan-900/40 bg-gradient-to-br from-[#0c1527] to-[#080d18] p-6 flex flex-col justify-between relative overflow-hidden">
-          <div className="absolute top-0 right-0 transform translate-x-4 -translate-y-4 w-28 h-28 bg-cyan-500/10 rounded-full blur-2xl" />
+        {false && (
+          <div className="rounded-2xl border border-cyan-900/40 bg-gradient-to-br from-[#0c1527] to-[#080d18] p-6 flex flex-col justify-between relative overflow-hidden">
 
           <div>
             <div className="flex items-center gap-2 text-cyan-400 text-xs font-semibold uppercase tracking-wider mb-3">
@@ -208,11 +220,11 @@ export const DashboardView = ({
             <ArrowRight className="h-3.5 w-3.5" />
           </button>
         </div>
-
-      </div>
-
-      {/* Weak Areas & 7-Day Plan Quick Bar */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        )}
+        </div>
+            {/* Weak Areas & 7-Day Plan Quick Bar */}
+      {false && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Identified Weak Areas */}
         <div className="lg:col-span-2 rounded-2xl border border-slate-800 bg-[#0a0f1c] p-6">
@@ -277,17 +289,17 @@ export const DashboardView = ({
         </div>
 
       </div>
-
+      )}
       {/* Recent Practice Sessions */}
-      <div className="rounded-2xl border border-slate-800 bg-[#0a0f1c] p-6">
+      <div className="rounded-2xl border border-slate-200 bg-white p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-sm font-bold text-white">Recent Hot Seat Sessions</h3>
-            <p className="text-xs text-slate-400">Review your past answers, filler word counts, and defensibility scores.</p>
+            <h3 className="text-sm font-bold text-slate-900">Recent Hot Seat Sessions</h3>
+            <p className="text-xs text-slate-600">Review your past answers, filler word counts, and defensibility scores.</p>
           </div>
           <button
             onClick={() => onNavigate("probe")}
-            className="text-xs font-semibold text-cyan-400 hover:underline"
+            className="text-xs font-semibold text-cyan-700 hover:underline"
           >
             New Session →
           </button>
@@ -298,33 +310,33 @@ export const DashboardView = ({
             {recentSessions.slice(0, 3).map((session, idx) => (
               <div 
                 key={idx}
-                className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl border border-slate-800/80 bg-slate-900/30 gap-3 hover:border-slate-700 transition-colors"
+                className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl border border-slate-200 bg-slate-50 gap-3 hover:border-slate-300 transition-colors"
               >
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-bold text-cyan-400 font-mono">
+                    <span className="text-[11px] font-bold text-cyan-700 font-mono">
                       {session.personaName || "Tech Lead"}
                     </span>
                     <span className="text-xs text-slate-500">·</span>
-                    <span className="text-xs text-slate-400">
+                    <span className="text-xs text-slate-600">
                       Claim: {session.claimText?.substring(0, 40)}...
                     </span>
                   </div>
-                  <p className="text-xs text-slate-200 font-medium italic">
+                  <p className="text-xs text-slate-700 font-medium italic">
                     "{session.question?.substring(0, 80)}..."
                   </p>
                 </div>
 
                 <div className="flex items-center gap-4 shrink-0">
                   <div className="text-right">
-                    <span className="text-[10px] text-slate-400 uppercase block">Score</span>
-                    <span className="text-sm font-mono font-bold text-emerald-400">
+                    <span className="text-[10px] text-slate-600 uppercase block">Score</span>
+                    <span className="text-sm font-mono font-bold text-emerald-700">
                       {session.score || 74}%
                     </span>
                   </div>
                   <button
                     onClick={() => onNavigate("probe")}
-                    className="p-2 rounded-lg border border-slate-800 bg-slate-800 text-slate-300 hover:text-white hover:border-slate-700"
+                    className="p-2 rounded-lg border border-slate-200 bg-white text-slate-700 hover:text-slate-900 hover:border-slate-300"
                     title="Retry this question"
                   >
                     <RotateCcw className="h-3.5 w-3.5" />
@@ -334,13 +346,13 @@ export const DashboardView = ({
             ))}
           </div>
         ) : (
-          <div className="rounded-xl border border-slate-800/80 bg-slate-900/20 p-6 text-center">
-            <p className="text-xs text-slate-400 mb-3">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center">
+            <p className="text-xs text-slate-600 mb-3">
               No interview sessions recorded yet. Enter the Hot Seat to run your first technical defensibility probe.
             </p>
             <button
-              onClick={() => onNavigate("probe")}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-500/20 border border-cyan-500/40 px-3.5 py-1.5 text-xs font-bold text-cyan-300 hover:bg-cyan-500/30"
+              onClick={() => onNavigate("parse")}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-50 border border-cyan-200 px-3.5 py-1.5 text-xs font-bold text-cyan-800 hover:bg-cyan-100"
             >
               <Mic2 className="h-3.5 w-3.5" />
               <span>Start First Session</span>

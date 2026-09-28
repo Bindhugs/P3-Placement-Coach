@@ -32,6 +32,7 @@ export default function App() {
   // Persistent Settings & Stats
   const [settings, setSettings] = useState(() => storage.getSettings());
   const [stats, setStats] = useState(() => storage.getStats());
+  const hasAnalyzedResume = stats.resumeAnalysisComplete === true;
   const [planProgress, setPlanProgress] = useState(() => storage.getPlanProgress());
   const [recentSessions, setRecentSessions] = useState(() => storage.getRecentSessions());
 
@@ -42,6 +43,7 @@ export default function App() {
   // Resume & Claims State
   const [resumeData, setResumeData] = useState(() => resumeParser.getSampleResume());
   const [uploadedResumeFile, setUploadedResumeFile] = useState(null);
+  const [isSampleResumeLoaded, setIsSampleResumeLoaded] = useState(false);
   const [activeClaim, setActiveClaim] = useState(() => {
     const sample = resumeParser.getSampleResume();
     return sample.claims[0];
@@ -68,6 +70,7 @@ export default function App() {
       const sample = resumeParser.getSampleResume();
       setResumeData(sample);
       setActiveClaim(sample.claims[0]);
+      setIsSampleResumeLoaded(false);
       setLastFeedback(null);
     };
     window.addEventListener("p3_data_cleared", handleReset);
@@ -154,6 +157,7 @@ export default function App() {
   // Upload/Parse new resume text
   const handleUploadResumeText = (text, fileName = "Uploaded Resume", file = null) => {
     setUploadedResumeFile(file);
+    setIsSampleResumeLoaded(false);
     
     const parsed = resumeParser.parseTextContent(text, fileName);
     setResumeData(parsed);
@@ -162,6 +166,7 @@ export default function App() {
     }
     const newStats = {
       ...stats,
+      resumeAnalysisComplete: true,
       claimsAnalyzed: parsed.claims.length,
       highRiskCount: parsed.stats.highRisk,
       mediumRiskCount: parsed.stats.mediumRisk,
@@ -174,7 +179,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#060911] text-slate-100 font-sans selection:bg-cyan-500/20 selection:text-cyan-200">
+    <div className="min-h-screen flex flex-col bg-[#f1f5f9] text-slate-800 font-sans selection:bg-cyan-200 selection:text-cyan-900">
       
       {/* Top Navbar */}
       <Navbar
@@ -208,6 +213,7 @@ export default function App() {
         {activeView === "dashboard" && (
           <DashboardView
             stats={stats}
+            hasAnalyzedResume={hasAnalyzedResume}
             resumeData={resumeData}
             recentSessions={recentSessions}
             onNavigate={(view) => setActiveView(view)}
@@ -220,12 +226,26 @@ export default function App() {
             resumeData={resumeData}selectedRole={selectedRole}
             experienceLevel={experienceLevel}
             uploadedResumeFile={uploadedResumeFile}
+            isSampleResumeLoaded={isSampleResumeLoaded}
             onSelectClaim={(claim) => setSelectedClaimForModal(claim)}
             onPracticeClaim={handlePracticeClaim}
             onLoadSampleResume={() => {
               const sample = resumeParser.getSampleResume();
+              const newStats = {
+                ...stats,
+                resumeAnalysisComplete: true,
+                claimsAnalyzed: sample.stats.totalClaims,
+                highRiskCount: sample.stats.highRisk,
+                mediumRiskCount: sample.stats.mediumRisk,
+                lowRiskCount: sample.stats.lowRisk
+              };
+              setUploadedResumeFile(null);
               setResumeData(sample);
               setActiveClaim(sample.claims[0]);
+              setIsSampleResumeLoaded(true);
+              setStats(newStats);
+              storage.saveStats(newStats);
+              setActiveView("roleSetup");
             }}
             onUploadResumeText={handleUploadResumeText}
           />
@@ -263,6 +283,7 @@ export default function App() {
 
         {activeView === "plan" && (
           <PlanView
+            hasResumeAnalysis={hasAnalyzedResume}
             planProgress={planProgress}
             onToggleDay={handleToggleDay}
             onPracticeDay={handlePracticeDay}
@@ -271,6 +292,7 @@ export default function App() {
 
         {activeView === "unlocker" && (
           <RoleUnlockerView
+            hasAnalyzedResume={hasAnalyzedResume}
             onAddRoleToPlan={(roleId) => {
               setActiveView("plan");
             }}
