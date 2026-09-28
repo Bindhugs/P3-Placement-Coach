@@ -122,6 +122,15 @@ class StorageService {
     }
   }
 
+  clearRecentSessions() {
+    if (!this.isAvailable()) return;
+    try {
+      window.localStorage.removeItem(STORAGE_KEYS.SESSION);
+    } catch (e) {
+      console.warn("P3: Failed to clear session history", e);
+    }
+  }
+
   // Clear My Data: Wipes all P3 keys and restores default state
   clearAllData() {
     if (!this.isAvailable()) return;

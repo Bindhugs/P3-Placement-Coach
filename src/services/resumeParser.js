@@ -15,7 +15,7 @@ const HIGH_RISK_PATTERNS = [
 ];
 
 const MEDIUM_RISK_PATTERNS = [
-  { pattern: /\b(indexing|mysql|postgresql|nosql|mongodb|redis)\b/i, reason: "Database claims trigger questions on B-Tree internals, query execution plans, and cache invalidation." },
+ { pattern: /\b(indexing|postgresql|nosql|mongodb|redis)\b/i, reason: "Database claims trigger questions on B-Tree internals, query execution plans, and cache invalidation." },
   { pattern: /\b(rest api|graphql|endpoints|crud)\b/i, reason: "API claims lead to questions on authentication, rate limiting, error status codes, and idempotency." },
   { pattern: /\b(fastapi|flask|django|express|spring boot|react|angular|vue)\b/i, reason: "Framework claims test knowledge of lifecycle, middleware, state management, and dependency injection." }
 ];
@@ -24,10 +24,30 @@ const MEDIUM_RISK_PATTERNS = [
 const COMMON_TECH_SKILLS = [
   "Python", "JavaScript", "TypeScript", "Java", "C++", "C#", "Go", "Rust", "SQL", "HTML", "CSS",
   "React", "Node.js", "Express", "Flask", "FastAPI", "Django", "Spring Boot", "Next.js",
-  "MySQL", "PostgreSQL", "MongoDB", "Redis", "SQLite", "DynamoDB",
+  "MySQL", "PostgreSQL", "MongoDB", "Redis", "SQLite", "DynamoDB","VS Code","Visual Studio Code",
   "Docker", "Kubernetes", "AWS", "Azure", "GCP", "Git", "GitHub", "Linux", "CI/CD",
   "Pandas", "NumPy", "Scikit-Learn", "TensorFlow", "PyTorch", "Tailwind"
 ];
+
+const SECTION_HEADERS = [
+  { name: "Education", pattern: /^(education|academics|academic background|degrees?)$/i },
+  { name: "Technical Skills", pattern: /^(technical skills|skills|technologies|proficiencies|stack)$/i },
+  { name: "Projects", pattern: /^(projects|academic projects|personal projects|project experience|portfolio)$/i },
+  { name: "Work Experience", pattern: /^(work experience|professional experience|experience|employment|internships?|work history)$/i },
+  { name: "Certifications", pattern: /^(certifications?|certificates|licenses|credentials)$/i },
+  { name: "Summary", pattern: /^(summary|profile|about me|objective)$/i }
+];
+
+const RESUME_ACTION_PATTERN = /\b(?:built|builds|developed|develops|designed|designs|implemented|implements|created|creates|engineered|integrated|connected|configured|refactored|optimized|automated|authored|wrote|trained|deployed|tested|maintained|reduced|improved|increased|led|managed|analyzed|achieved|delivered|contributed|collaborated|supported|used|established|launched|devised|resolved|migrated|secured|enabled|processed|generated|leveraged|utilized|provided|conducted|participated|assisted)\b/i;
+
+const getSectionName = (line) => {
+  const label = line.replace(/:$/, "").trim();
+  return SECTION_HEADERS.find(section => section.pattern.test(label))?.name || null;
+};
+
+const hasResumeAction = (line) => RESUME_ACTION_PATTERN.test(line);
+
+const isDateOnly = (line) => /^(?:(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+\d{4}|\d{4})\s*(?:[-–—]|to)\s*(?:(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+\d{4}|present|current|\d{4})$/i.test(line.trim());
 
 export class ResumeParser {
   // Return sample resume data instantly for demo mode
@@ -36,7 +56,7 @@ export class ResumeParser {
       raw: SAMPLE_RESUME,
       claims: PRE_ANALYZED_CLAIMS,
       presentationIssues: PRESENTATION_ISSUES,
-           stats: {
+      stats: {
         totalClaims: PRE_ANALYZED_CLAIMS.length,
         highRisk: PRE_ANALYZED_CLAIMS.filter(c => c.riskLevel === "HIGH").length,
         mediumRisk: PRE_ANALYZED_CLAIMS.filter(c => c.riskLevel === "MEDIUM").length,
@@ -69,32 +89,21 @@ export class ResumeParser {
 
     // Normalize and split text into logical lines / bullets even if PDF output has few newlines
     const normalized = text
-      .replace(/([•\-\*■●►])/g, "\n$1")
-      .replace(/(Education|Technical Skills|Skills|Projects|Work Experience|Experience|Certifications|Summary):/gi, "\n$1:\n")
-      .replace(/(\.\s+)(?=[A-Z])/g, "$1\n");
+      .replace(/([•●▪►])\s*/g, "\n$1 ")
+      .replace(/(Education|Technical Skills|Skills|Projects|Project Experience|Work Experience|Professional Experience|Work History|Experience|Employment|Internships?|Certifications|Summary):/gi, "\n$1:\n");
 
     const lines = normalized.split("\n").map(l => l.trim()).filter(Boolean);
     const extractedClaims = [];
+    const extractedExperience = [];
+    const extractedCertifications = [];
+    const extractedProjects = [];
     const presentationIssues = [];
     const detectedSectionsSet = new Set();
 
-    // Section detection regex
-    const sectionKeywords = [
-      { name: "Education", regex: /\b(education|academics|degree|university|college|b\.tech|b\.e|b\.s|m\.s)\b/i },
-      { name: "Technical Skills", regex: /\b(technical skills|skills|technologies|proficiencies|stack)\b/i },
-      { name: "Projects", regex: /\b(projects|academic projects|personal projects|portfolio)\b/i },
-      { name: "Work Experience", regex: /\b(experience|work experience|employment|internships|intern)\b/i },
-      { name: "Certifications", regex: /\b(certifications|certificates|licenses|credentials)\b/i },
-      { name: "Summary", regex: /\b(summary|profile|about me|objective)\b/i }
-    ];
-
     // Scan lines for section headers
     lines.forEach(line => {
-      sectionKeywords.forEach(sec => {
-        if (sec.regex.test(line) && line.length < 35) {
-          detectedSectionsSet.add(sec.name);
-        }
-      });
+      const sectionName = getSectionName(line);
+      if (sectionName) detectedSectionsSet.add(sectionName);
     });
 
     // Extract detected technical skills
@@ -106,22 +115,52 @@ export class ResumeParser {
         detectedSkills.push(skill);
       }
     });
+    console.log("DETECTED SKILLS:", detectedSkills);
 
     // Scan lines for potential defensibility claims
     let claimIdCounter = 1;
     let currentSection = "Project Claim";
+    let currentProjectTitle = "";
+    let currentExperienceTitle = "";
 
     lines.forEach((line, index) => {
-      // Check if line sets section
-      sectionKeywords.forEach(sec => {
-        if (sec.regex.test(line) && line.length < 35) {
-          currentSection = sec.name;
-        }
-      });
+      const sectionName = getSectionName(line);
+      if (sectionName) {
+        currentSection = sectionName;
+        if (sectionName === "Projects") currentProjectTitle = "";
+        if (sectionName === "Work Experience") currentExperienceTitle = "";
+        return;
+      }
 
       // Clean bullet markers
-      const cleanLine = line.replace(/^[•\-\*\d\.\)\s]+/, "").trim();
-      if (cleanLine.length < 22) return; // Too short to be a substantive claim
+      const hasBullet = /^\s*(?:[•●▪►]\s*|[-*]\s+|\d+[.)]\s*)/.test(line);
+      const cleanLine = line.replace(/^\s*(?:[•●▪►]\s*|[-*]\s+|\d+[.)]\s*)/, "").trim();
+      if (!cleanLine || isDateOnly(cleanLine)) return;
+
+      const hasAction = hasResumeAction(cleanLine);
+      if (currentSection === "Projects" && (!hasAction || (!hasBullet && cleanLine.length <= 28))) {
+        if (cleanLine.length >= 3) {
+          currentProjectTitle = cleanLine;
+          extractedProjects.push({
+            id: `project-${extractedProjects.length + 1}`,
+            title: cleanLine,
+            timeline: "Extracted from Resume",
+            stack: detectedSkills.filter(skill => cleanLine.toLowerCase().includes(skill.toLowerCase())),
+            bullets: []
+          });
+        }
+        return;
+      }
+      if (currentSection === "Work Experience" && !hasAction) {
+        if (cleanLine.length >= 8) currentExperienceTitle = cleanLine;
+        return;
+      }
+      if (currentSection === "Certifications") {
+        if (cleanLine.length >= 4) extractedCertifications.push(cleanLine);
+        return;
+      }
+      if (cleanLine.length <= 28 || !hasAction) return;
+      if (currentSection !== "Projects" && currentSection !== "Work Experience") return;
 
       // Detect High Risk vs Medium Risk
       const matchedHigh = HIGH_RISK_PATTERNS.find(item => item.pattern.test(cleanLine));
@@ -158,19 +197,37 @@ export class ResumeParser {
       }
 
       // Add to claims if substantive
-      if (cleanLine.length > 28 && extractedClaims.length < 16) {
+      if (extractedClaims.length < 16) {
+        const sourceProject = currentSection === "Projects"
+          ? currentProjectTitle || "Project"
+          : currentExperienceTitle || "Work Experience";
         extractedClaims.push({
           id: `extracted-claim-${claimIdCounter++}`,
           claim: cleanLine,
-          sourceProject: `${currentSection} (Line ${index + 1})`,
-          category: matchedHigh ? "Critical Architecture" : (matchedMed ? "Core Technology" : "Implementation"),
+          sourceProject,
+          category: matchedHigh
+            ? "Critical Architecture"
+            : (matchedMed ? "Core Technology" : "Implementation"),
           riskLevel,
           riskScore,
           recruiterSuspicion,
           likelyQuestions,
-          recommendedTalkingPoints: "Focus on your individual technical decisions, why you selected this stack, trade-offs made, and how you tested the boundary conditions.",
-          weakAreaTag: matchedHigh ? "Architecture & Edge Cases" : "Technical Breadth"
+          recommendedTalkingPoints:
+            "Focus on your individual technical decisions, why you selected this stack, trade-offs made, and how you tested the boundary conditions.",
+          weakAreaTag: matchedHigh
+            ? "Architecture & Edge Cases"
+            : "Technical Breadth"
         });
+        if (currentSection === "Projects" && currentProjectTitle) {
+          const project = extractedProjects.find(item => item.title === currentProjectTitle);
+          if (project) project.bullets.push(cleanLine);
+        }
+        if (currentSection === "Work Experience") {
+          extractedExperience.push({
+            role: currentExperienceTitle || "Work Experience",
+            bullet: cleanLine
+          });
+        }
       }
 
       // Presentation formatting checks
@@ -213,57 +270,64 @@ export class ResumeParser {
       raw: {
         candidate: {
           name: candidateName,
-          degree: "",
+          degree: lines.find(line =>
+  /Bachelor of Engineering|B\.E\.|B\.Tech|Bachelor of Technology/i.test(line)
+) || "",
           summary: lines.slice(0, 3).join(" ")
         },
         skills: {
   languages: detectedSkills.filter(skill =>
+  [
+    "Python", "TypeScript", "Java",
+    "C++", "C#", "Go", "Rust"
+  ].includes(skill)
+),
+
+  frameworks: detectedSkills.filter(skill =>
     [
-      "Python", "JavaScript", "TypeScript", "Java",
-      "C++", "C#", "Go", "Rust", "HTML", "CSS"
+      "React", "Node.js", "Express", "Flask",
+      "FastAPI", "Django", "Spring Boot", "Next.js", "Tailwind"
     ].includes(skill)
   ),
 
-  frameworks: detectedSkills.filter(skill =>
-  [
-    "React", "Node.js", "Express", "Flask",
-    "FastAPI", "Django", "Spring Boot", "Next.js", "Tailwind"
-  ].includes(skill)
-),
+  databases: detectedSkills.filter(skill =>
+    [
+      "MySQL", "PostgreSQL", "MongoDB",
+      "Redis", "SQLite", "DynamoDB"
+    ].includes(skill)
+  ),
 
-databases: detectedSkills.filter(skill =>
-  [
-    "MySQL", "PostgreSQL", "MongoDB",
-    "Redis", "SQLite", "DynamoDB"
-  ].includes(skill)
-),
-
-tools: detectedSkills.filter(skill =>
-  [
-    "Docker", "Kubernetes", "AWS", "Azure", "GCP",
-    "Git", "GitHub", "VS Code", "Linux", "CI/CD",
-    "Pandas", "NumPy", "Scikit-Learn",
-    "TensorFlow", "PyTorch"
-  ].includes(skill)
-)
-        },
-       projects: [],
-experience: [],
-certifications: []
+  tools: detectedSkills.filter(skill =>
+    [
+      "Docker", "Kubernetes", "AWS", "Azure", "GCP",
+      "Git", "GitHub", "VS Code", "Linux", "CI/CD",
+      "Pandas", "NumPy", "Scikit-Learn",
+      "TensorFlow", "PyTorch"
+    ].includes(skill)
+  )
 },
-claims: finalClaims,
-presentationIssues,
-stats: {
-  totalClaims: finalClaims.length,
-  highRisk: finalClaims.filter(c => c.riskLevel === "HIGH").length,
-  mediumRisk: finalClaims.filter(c => c.riskLevel === "MEDIUM").length,
-  lowRisk: finalClaims.filter(c => c.riskLevel === "LOW").length
-},
-detectedSections,
-sourceName: fileName,
-error: parseError
-};
-}
+        projects: extractedProjects,
+        experience: [...new Set(extractedExperience.map(item => item.role))].map((role, index) => ({
+          id: `extracted-experience-${index + 1}`,
+          role,
+          timeline: "Extracted from Resume",
+          bullets: [...new Set(extractedExperience.filter(item => item.role === role).map(item => item.bullet))]
+        })),
+        certifications: [...new Set(extractedCertifications)]
+      },
+      claims: finalClaims,
+      presentationIssues,
+      stats: {
+        totalClaims: finalClaims.length,
+        highRisk: finalClaims.filter(c => c.riskLevel === "HIGH").length,
+        mediumRisk: finalClaims.filter(c => c.riskLevel === "MEDIUM").length,
+        lowRisk: finalClaims.filter(c => c.riskLevel === "LOW").length
+      },
+      detectedSections,
+      sourceName: fileName,
+      error: parseError
+    };
+  }
 }
 
 export const resumeParser = new ResumeParser();

@@ -20,6 +20,7 @@ import { RoleSetupView } from "./components/views/RoleSetupView";
 import { resumeParser } from "./services/resumeParser";
 import { storage } from "./services/storageService";
 import { aiService } from "./services/aiService";
+import { generatePersonalizedPlan } from "./services/coachingService";
 import { getPersonaById } from "./data/personas";
 
 export default function App() {
@@ -32,8 +33,8 @@ export default function App() {
   // Persistent Settings & Stats
   const [settings, setSettings] = useState(() => storage.getSettings());
   const [stats, setStats] = useState(() => storage.getStats());
-  const hasAnalyzedResume = stats.resumeAnalysisComplete === true;
   const [planProgress, setPlanProgress] = useState(() => storage.getPlanProgress());
+  const [personalizedPlan, setPersonalizedPlan] = useState(null);
   const [recentSessions, setRecentSessions] = useState(() => storage.getRecentSessions());
 
   // Modal State
@@ -41,13 +42,19 @@ export default function App() {
   const [selectedClaimForModal, setSelectedClaimForModal] = useState(null);
 
   // Resume & Claims State
-  const [resumeData, setResumeData] = useState(() => resumeParser.getSampleResume());
+  const [resumeData, setResumeData] = useState(null);
   const [uploadedResumeFile, setUploadedResumeFile] = useState(null);
   const [isSampleResumeLoaded, setIsSampleResumeLoaded] = useState(false);
-  const [activeClaim, setActiveClaim] = useState(() => {
-    const sample = resumeParser.getSampleResume();
-    return sample.claims[0];
-  });
+  const [activeClaim, setActiveClaim] = useState(null);
+  const hasAnalyzedResume = Boolean(resumeData && stats.resumeAnalysisComplete === true);
+  const activeResumeClaims = hasAnalyzedResume ? (resumeData?.claims || []) : [];
+  const dashboardStats = {
+    ...stats,
+    claimsAnalyzed: activeResumeClaims.length,
+    highRiskCount: activeResumeClaims.filter(claim => claim.riskLevel === "HIGH").length,
+    mediumRiskCount: activeResumeClaims.filter(claim => claim.riskLevel === "MEDIUM").length,
+    lowRiskCount: activeResumeClaims.filter(claim => claim.riskLevel === "LOW").length
+  };
 
   // Last Interview Session State (for Progress View)
   const [lastFeedback, setLastFeedback] = useState(null);
@@ -66,12 +73,15 @@ export default function App() {
       setSettings(storage.getSettings());
       setStats(storage.getStats());
       setPlanProgress({});
+      setPersonalizedPlan(null);
       setRecentSessions([]);
-      const sample = resumeParser.getSampleResume();
-      setResumeData(sample);
-      setActiveClaim(sample.claims[0]);
+      setResumeData(null);
+      setActiveClaim(null);
+      setUploadedResumeFile(null);
       setIsSampleResumeLoaded(false);
       setLastFeedback(null);
+      setLastQuestion("");
+      setLastAnswer("");
     };
     window.addEventListener("p3_data_cleared", handleReset);
     return () => window.removeEventListener("p3_data_cleared", handleReset);
@@ -81,6 +91,28 @@ export default function App() {
   const handleTriggerDemo = () => {
     const sample = resumeParser.getSampleResume();
     setResumeData(sample);
+    setUploadedResumeFile(null);
+    setLastFeedback(null);
+    setLastQuestion("");
+    setLastAnswer("");
+    setPersonalizedPlan(null);
+    setPlanProgress({});
+    storage.savePlanProgress({});
+    setIsSampleResumeLoaded(true);
+    const demoStats = {
+      ...stats,
+      resumeAnalysisComplete: true,
+      readinessScore: null,
+      sessionsCompleted: 0,
+      claimsAnalyzed: sample.claims.length,
+      highRiskCount: sample.stats.highRisk,
+      mediumRiskCount: sample.stats.mediumRisk,
+      lowRiskCount: sample.stats.lowRisk
+    };
+    setStats(demoStats);
+    storage.saveStats(demoStats);
+    storage.clearRecentSessions();
+    setRecentSessions([]);
     const demoClaim = sample.claims[0]; // "Developed scalable e-commerce backend handling payments using Stripe webhooks"
     setActiveClaim(demoClaim);
     setActiveView("parse");
@@ -104,6 +136,9 @@ export default function App() {
     setLastQuestion(question);
     setLastAnswer(answer);
     setLastPersona(persona);
+    setPersonalizedPlan(generatePersonalizedPlan(feedback, resumeData, claim, selectedRole, experienceLevel));
+    setPlanProgress({});
+    storage.savePlanProgress({});
 
     // Save session record
     const sessionRecord = {
@@ -112,7 +147,7 @@ export default function App() {
       question,
       personaName: persona?.name || "Tech Lead",
       score: feedback?.scores?.overallReadiness || 72,
-      duration: feedback?.signals?.duration || 45
+      duration: feedback?.signals?.answerDurationSeconds ?? 0
     };
     storage.addSessionRecord(sessionRecord);
     setRecentSessions(storage.getRecentSessions());
@@ -149,7 +184,9 @@ export default function App() {
 
   // Practice specific day in 7-day plan
   const handlePracticeDay = (claimId) => {
-    const targetClaim = resumeData.claims.find(c => c.id === claimId) || resumeData.claims[0];
+    const claims = resumeData?.claims || [];
+    const targetClaim = claims.find(c => c.id === claimId) || claims[0];
+    if (!targetClaim) return;
     setActiveClaim(targetClaim);
     setActiveView("probe");
   };
@@ -158,14 +195,25 @@ export default function App() {
   const handleUploadResumeText = (text, fileName = "Uploaded Resume", file = null) => {
     setUploadedResumeFile(file);
     setIsSampleResumeLoaded(false);
+    setActiveClaim(null);
+    setLastFeedback(null);
+    setLastQuestion("");
+    setLastAnswer("");
+    setPersonalizedPlan(null);
+    setPlanProgress({});
+    storage.savePlanProgress({});
+    storage.clearRecentSessions();
+    setRecentSessions([]);
     
     const parsed = resumeParser.parseTextContent(text, fileName);
     setResumeData(parsed);
-    if (parsed.claims.length > 0) {
-      setActiveClaim(parsed.claims[0]);
-    }
+    setActiveClaim(parsed.claims[0] || null);
     const newStats = {
       ...stats,
+      readinessScore: null,
+      sessionsCompleted: 0,
+      weakAreas: [],
+      recommendedNextAction: "",
       resumeAnalysisComplete: true,
       claimsAnalyzed: parsed.claims.length,
       highRiskCount: parsed.stats.highRisk,
@@ -212,7 +260,7 @@ export default function App() {
           )}
         {activeView === "dashboard" && (
           <DashboardView
-            stats={stats}
+            stats={dashboardStats}
             hasAnalyzedResume={hasAnalyzedResume}
             resumeData={resumeData}
             recentSessions={recentSessions}
@@ -233,6 +281,8 @@ export default function App() {
               const sample = resumeParser.getSampleResume();
               const newStats = {
                 ...stats,
+                readinessScore: null,
+                sessionsCompleted: 0,
                 resumeAnalysisComplete: true,
                 claimsAnalyzed: sample.stats.totalClaims,
                 highRiskCount: sample.stats.highRisk,
@@ -240,6 +290,14 @@ export default function App() {
                 lowRiskCount: sample.stats.lowRisk
               };
               setUploadedResumeFile(null);
+              setLastFeedback(null);
+              setLastQuestion("");
+              setLastAnswer("");
+              setPersonalizedPlan(null);
+              setPlanProgress({});
+              storage.savePlanProgress({});
+              storage.clearRecentSessions();
+              setRecentSessions([]);
               setResumeData(sample);
               setActiveClaim(sample.claims[0]);
               setIsSampleResumeLoaded(true);
@@ -252,16 +310,30 @@ export default function App() {
         )}
 
         {activeView === "probe" && (
-          <ProbeView
-            activeClaim={activeClaim}
-            allClaims={resumeData.claims}
-            onClaimChange={(claim) => setActiveClaim(claim)}
-            onFinishInterview={handleFinishInterview}
-            userSettings={settings}
-            selectedRole={selectedRole}
-            experienceLevel={experienceLevel}
-            />
-        )}
+  resumeData?.claims?.length > 0 ? (
+    <ProbeView
+      activeClaim={activeClaim}
+      allClaims={resumeData.claims}
+      onClaimChange={(claim) => setActiveClaim(claim)}
+      onFinishInterview={handleFinishInterview}
+      userSettings={settings}
+      selectedRole={selectedRole}
+      experienceLevel={experienceLevel}
+      resumeData={resumeData}
+    />
+  ) : (
+    <div className="p-8 text-center">
+      <h2 className="text-xl font-bold text-slate-900">
+        {hasAnalyzedResume ? "No substantive claims found" : "Analyze your resume first"}
+      </h2>
+      <p className="mt-2 text-slate-600">
+        {hasAnalyzedResume
+          ? "Add project or experience details with specific contributions before starting the interview."
+          : "Upload and analyze your resume before starting the interview."}
+      </p>
+    </div>
+  )
+)}
 
         {activeView === "progress" && (
           <ProgressView
@@ -273,9 +345,11 @@ export default function App() {
             onRetry={() => setActiveView("probe")}
             onGoToPlan={() => setActiveView("plan")}
             onNextClaim={() => {
-              const currentIdx = resumeData.claims.findIndex(c => c.id === activeClaim?.id);
-              const nextIdx = (currentIdx + 1) % resumeData.claims.length;
-              setActiveClaim(resumeData.claims[nextIdx]);
+              const claims = resumeData?.claims || [];
+              if (!claims.length) return;
+              const currentIdx = claims.findIndex(c => c.id === activeClaim?.id);
+              const nextIdx = (currentIdx + 1) % claims.length;
+              setActiveClaim(claims[nextIdx]);
               setActiveView("probe");
             }}
           />
@@ -283,7 +357,8 @@ export default function App() {
 
         {activeView === "plan" && (
           <PlanView
-            hasResumeAnalysis={hasAnalyzedResume}
+            hasCompletedInterview={Boolean(lastFeedback)}
+            plan={personalizedPlan}
             planProgress={planProgress}
             onToggleDay={handleToggleDay}
             onPracticeDay={handlePracticeDay}
@@ -292,7 +367,10 @@ export default function App() {
 
         {activeView === "unlocker" && (
           <RoleUnlockerView
-            hasAnalyzedResume={hasAnalyzedResume}
+            hasGeneratedPlan={personalizedPlan?.length > 0}
+            resumeData={resumeData}
+            targetRole={selectedRole}
+            feedback={lastFeedback}
             onAddRoleToPlan={(roleId) => {
               setActiveView("plan");
             }}

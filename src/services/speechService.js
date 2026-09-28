@@ -89,14 +89,20 @@ class SpeechService {
   }
 
   stopListening() {
-    if (this.recognition && this.isListening) {
+    if (!this.recognition) return;
+
+    const recognition = this.recognition;
+    if (this.isListening) {
       try {
-        this.recognition.stop();
+        recognition.stop();
       } catch (e) {
         console.warn("Error stopping recognition:", e);
       }
-      this.isListening = false;
     }
+    this.isListening = false;
+    recognition.onresult = null;
+    recognition.onerror = null;
+    recognition.onend = null;
   }
 
   // Text-To-Speech for Interviewer Persona

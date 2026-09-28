@@ -35,6 +35,30 @@ export const ProgressView = ({
   const whatYouShouldWorkOn = feedback?.whatYouShouldWorkOn || [];
 
   const modelAnswer = feedback?.modelAnswer || "";
+  const answerWordCount = signals.wordCount ?? (candidateAnswer || "").trim().split(/\s+/).filter(Boolean).length;
+  const answerDuration = signals.answerDurationSeconds;
+  const structureParts = [signals.hasContext, signals.hasAction, signals.hasResult];
+  const structureCount = structureParts.filter(Boolean).length;
+  const questionKeywords = (questionAsked || "").toLowerCase().match(/[a-z]{4,}/g) || [];
+  const ignoredQuestionWords = new Set(["your", "what", "when", "where", "which", "would", "could", "this", "that", "from", "about", "into", "have", "with", "does", "did"]);
+  const answerLower = (candidateAnswer || "").toLowerCase();
+  const questionWordOverlap = [...new Set(questionKeywords.filter(word => !ignoredQuestionWords.has(word)))].filter(word =>
+    new RegExp(`\\b${word}\\b`, "i").test(answerLower)
+  ).length;
+  const answerLengthLabel = answerWordCount === 0
+    ? "No answer recorded"
+    : answerWordCount < 35
+      ? "Short answer"
+      : answerWordCount <= 100
+        ? "Moderate length"
+        : "Extended answer";
+  const paceLabel = !signals.wordsPerMinute
+    ? "Not available"
+    : signals.wordsPerMinute < 90
+      ? "Below reference pace"
+      : signals.wordsPerMinute > 165
+        ? "Above reference pace"
+        : "Within reference pace";
 
   return (
     <div className="space-y-8 pb-16">
@@ -171,6 +195,47 @@ export const ProgressView = ({
         </div>
 
       </div>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
+        <div>
+          <h2 className="text-sm font-bold text-slate-900">Communication Confidence Signals</h2>
+          <p className="mt-1 text-xs text-slate-600">
+            Observable delivery and answer-structure measurements only; these do not measure psychological confidence.
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-4 text-xs sm:grid-cols-3 lg:grid-cols-6">
+          <div>
+            <span className="block text-[10px] uppercase tracking-wider text-slate-500">Speaking pace</span>
+            <span className="mt-1 block font-semibold text-slate-900">{signals.wordsPerMinute ?? 0} WPM</span>
+            <span className="text-slate-600">{paceLabel}</span>
+          </div>
+          <div>
+            <span className="block text-[10px] uppercase tracking-wider text-slate-500">Filler words</span>
+            <span className="mt-1 block font-semibold text-slate-900">{signals.fillerCount ?? 0} detected</span>
+          </div>
+          <div>
+            <span className="block text-[10px] uppercase tracking-wider text-slate-500">Answer length</span>
+            <span className="mt-1 block font-semibold text-slate-900">{answerWordCount} words</span>
+            <span className="text-slate-600">{answerLengthLabel}</span>
+          </div>
+          <div>
+            <span className="block text-[10px] uppercase tracking-wider text-slate-500">Answer duration</span>
+            <span className="mt-1 block font-semibold text-slate-900">
+              {Number.isFinite(answerDuration) ? `${Math.floor(answerDuration / 60)}m ${answerDuration % 60}s` : "Not recorded"}
+            </span>
+          </div>
+          <div>
+            <span className="block text-[10px] uppercase tracking-wider text-slate-500">PAR coverage</span>
+            <span className="mt-1 block font-semibold text-slate-900">{structureCount} of 3 signals</span>
+            <span className="text-slate-600">Context, action, result</span>
+          </div>
+          <div>
+            <span className="block text-[10px] uppercase tracking-wider text-slate-500">Question word overlap</span>
+            <span className="mt-1 block font-semibold text-slate-900">{questionWordOverlap} terms</span>
+            <span className="text-slate-600">Keyword overlap only</span>
+          </div>
+        </div>
+      </section>
 
       {/* What You Did Well vs What You Should Work On */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

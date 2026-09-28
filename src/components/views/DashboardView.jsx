@@ -23,6 +23,10 @@ export const DashboardView = ({
   onNavigate, 
   onPracticeClaim 
 }) => {
+  const analyzedClaims = hasAnalyzedResume ? (resumeData?.claims || []) : [];
+  const highRiskCount = analyzedClaims.filter(claim => claim.riskLevel === "HIGH").length;
+  const mediumRiskCount = analyzedClaims.filter(claim => claim.riskLevel === "MEDIUM").length;
+  const lowRiskCount = analyzedClaims.filter(claim => claim.riskLevel === "LOW").length;
   const readinessScore = hasAnalyzedResume ? stats?.readinessScore : null;
   const readiness = readinessScore ?? 0;
 
@@ -121,7 +125,7 @@ export const DashboardView = ({
             <div>
               <span className="block text-slate-600 text-[10px] uppercase">Claims Analyzed</span>
               <span className="font-bold text-slate-900 font-mono">
-                {hasAnalyzedResume ? stats?.claimsAnalyzed || 0 : 0}
+                {analyzedClaims.length}
               </span>
             </div>
             <div className="h-6 w-px bg-slate-200" />
@@ -143,7 +147,7 @@ export const DashboardView = ({
             </div>
 
             <div className="space-y-3">
-              {hasAnalyzedResume ? (
+              {analyzedClaims.length > 0 ? (
                 <>
               {/* High Risk */}
               <div className="flex items-center justify-between p-3 rounded-xl border border-rose-200 bg-rose-50">
@@ -152,7 +156,7 @@ export const DashboardView = ({
                   <span className="text-xs font-semibold text-rose-800">High Defensibility Risk</span>
                 </div>
                 <span className="text-xs font-bold text-rose-700 font-mono">
-                  {stats?.highRiskCount ?? 0} claims
+                  {highRiskCount} claims
                 </span>
               </div>
 
@@ -163,7 +167,7 @@ export const DashboardView = ({
                   <span className="text-xs font-semibold text-amber-800">Medium Risk Probes</span>
                 </div>
                 <span className="text-xs font-bold text-amber-700 font-mono">
-                  {stats?.mediumRiskCount ?? 0} claims
+                  {mediumRiskCount} claims
                 </span>
               </div>
 
@@ -174,10 +178,14 @@ export const DashboardView = ({
                   <span className="text-xs font-semibold text-emerald-800">Low Risk / Solid Ground</span>
                 </div>
                 <span className="text-xs font-bold text-emerald-700 font-mono">
-                  {stats?.lowRiskCount ?? 0} claims
+                  {lowRiskCount} claims
                 </span>
               </div>
                 </>
+              ) : hasAnalyzedResume ? (
+                <p className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">
+                  No substantive claims were found in this resume. Add project or experience details to see risk counts.
+                </p>
               ) : (
                 <p className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">
                   Analyze your resume to see your claim risk breakdown.

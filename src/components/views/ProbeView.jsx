@@ -13,12 +13,14 @@ import {
   Flame, 
   Clock, 
   CheckCircle2,
-  Users
+  Users,
+  VolumeX
 } from "lucide-react";
 import { AudioVisualizer } from "../common/AudioVisualizer";
 import { INTERVIEWER_PERSONAS, getPersonaById } from "../../data/personas";
 import { speechService } from "../../services/speechService";
 import { aiService } from "../../services/aiService";
+import { generateContextualFollowUp, generatePrimaryInterviewQuestion } from "../../services/coachingService";
 
 export const ProbeView = ({ 
   activeClaim, 
@@ -27,15 +29,18 @@ export const ProbeView = ({
   onFinishInterview,
   userSettings,
   selectedRole,
-  experienceLevel
+  experienceLevel,
+  resumeData
 }) => {
   // Selected persona state
-  const [selectedPersonaId, setSelectedPersonaId] = useState("tech-lead");
-  const activePersona = getPersonaById(selectedPersonaId);
+  const [selectedPersonaId, setSelectedPersonaId] = useState(null);
+  const activePersona = selectedPersonaId ? getPersonaById(selectedPersonaId) : null;
 
   // Question state
   const [activeQuestion, setActiveQuestion] = useState("");
   const [questionIndex, setQuestionIndex] = useState(0);
+  const [questionRevision, setQuestionRevision] = useState(0);
+  const [isInterviewerVoiceOn, setIsInterviewerVoiceOn] = useState(userSettings?.voiceEnabled !== false);
 
   // Recording & Answer state
   const [isListening, setIsListening] = useState(false);
@@ -53,35 +58,65 @@ export const ProbeView = ({
   const [drillDownBanner, setDrillDownBanner] = useState("");
   const [drillDownQuestion, setDrillDownQuestion] = useState("");
   const [initialAnswer, setInitialAnswer] = useState("");
+  const [initialDuration, setInitialDuration] = useState(0);
 
   // Processing loader
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const timerRef = useRef(null);
+  const lastSpokenRevisionRef = useRef(null);
+  const displayedQuestion = drillDownActive ? drillDownQuestion : activeQuestion;
 
-  // Initialize question based on active claim or default
+  const publishQuestion = (question) => {
+    setActiveQuestion(question);
+    setQuestionRevision(revision => revision + 1);
+  };
+
+  const publishFollowUp = (question) => {
+    setDrillDownQuestion(question);
+    setQuestionRevision(revision => revision + 1);
+  };
+
+  const handleSelectPersona = (personaId) => {
+    if (selectedPersonaId) {
+      speechService.stopSpeaking();
+      speechService.stopListening();
+      setIsListening(false);
+    }
+    setSelectedPersonaId(personaId);
+  };
+
+  // Initialize a question from the selected claim and interview context.
   useEffect(() => {
-      if (activeClaim && activeClaim.likelyQuestions && activeClaim.likelyQuestions.length > 0) {
-    setActiveQuestion(activeClaim.likelyQuestions[0]);
-  } else if (selectedRole === "AI/ML Engineer") {
-    setActiveQuestion(
-      `For an ${experienceLevel || "entry-level"} ${selectedRole} role, explain one technical decision you made in your project and why you chose that approach.`
-    );
-  } else if (selectedRole) {
-    setActiveQuestion(
-      `For an ${experienceLevel || "entry-level"} ${selectedRole} role, explain one important technical decision from your project.`
-    );
-  } else {
-    setActiveQuestion(
-      "Your resume says you implemented a payment system. Which payment gateway did you integrate, and how did you handle duplicate transactions?"
-    );
-  }
+    if (!selectedPersonaId || !activePersona) return;
+    publishQuestion(generatePrimaryInterviewQuestion({
+      claim: activeClaim,
+      resumeData,
+      selectedRole,
+      experienceLevel,
+      persona: activePersona,
+      questionIndex: 0
+    }));
+    setQuestionIndex(0);
     // Reset answers
     setTranscript("");
     setDuration(0);
     setDrillDownActive(false);
     setDrillDownQuestion("");
-  }, [activeClaim, selectedRole, experienceLevel]);
+    setInitialDuration(0);
+  }, [activeClaim, resumeData, selectedRole, experienceLevel, selectedPersonaId, activePersona]);
+
+  useEffect(() => {
+    if (!selectedPersonaId || !activePersona || !isInterviewerVoiceOn || !displayedQuestion || lastSpokenRevisionRef.current === questionRevision) return;
+    lastSpokenRevisionRef.current = questionRevision;
+    speechService.speakQuestion(displayedQuestion, activePersona.voiceSettings);
+  }, [selectedPersonaId, displayedQuestion, questionRevision, isInterviewerVoiceOn, activePersona]);
+
+  useEffect(() => () => {
+    speechService.stopSpeaking();
+    speechService.stopListening();
+    if (timerRef.current) clearInterval(timerRef.current);
+  }, []);
 
   // Speaking timer
   useEffect(() => {
@@ -103,12 +138,6 @@ export const ProbeView = ({
     setFillerCount(signals.fillerCount);
     setDetectedFillers(signals.detectedFillers);
   }, [transcript, duration]);
-
-  // Read question aloud using TTS
-  const handleSpeakQuestion = () => {
-    const textToSpeak = drillDownActive ? drillDownQuestion : activeQuestion;
-    speechService.speakQuestion(textToSpeak, activePersona.voiceSettings);
-  };
 
   // Start Voice Answer
   const handleStartListening = () => {
@@ -147,17 +176,23 @@ export const ProbeView = ({
     setDuration(0);
     setDrillDownActive(false);
     setDrillDownQuestion("");
+    setInitialDuration(0);
     setMicError(null);
   };
 
   // Next / Skip Question
   const handleSkipQuestion = () => {
     handleTryAgain();
-    if (activeClaim?.likelyQuestions) {
-      const nextIdx = (questionIndex + 1) % activeClaim.likelyQuestions.length;
-      setQuestionIndex(nextIdx);
-      setActiveQuestion(activeClaim.likelyQuestions[nextIdx]);
-    }
+    const nextIdx = (questionIndex + 1) % 4;
+    setQuestionIndex(nextIdx);
+    publishQuestion(generatePrimaryInterviewQuestion({
+      claim: activeClaim,
+      resumeData,
+      selectedRole,
+      experienceLevel,
+      persona: activePersona,
+      questionIndex: nextIdx
+    }));
   };
 
   // Submit Answer & Handle Adaptive Drill-Down
@@ -172,18 +207,27 @@ export const ProbeView = ({
     // Check if adaptive drill-down should be triggered (first round only)
     if (!drillDownActive) {
       const evaluation = aiService.evaluateAnswerCompleteness(transcript, activeClaim);
-      if (evaluation.needsDrillDown) {
+      const answerSignals = speechService.analyzeAnswerSignals(transcript, duration);
+      const answerIsStrong = answerSignals.wordCount >= 35 &&
+        answerSignals.hasContext && answerSignals.hasAction && answerSignals.hasResult;
+      if (evaluation.needsDrillDown || answerIsStrong) {
         setDrillDownActive(true);
-        setDrillDownBanner(evaluation.bannerMessage);
-        setDrillDownQuestion(evaluation.followUpPrompt);
+        setDrillDownBanner(evaluation.needsDrillDown
+          ? evaluation.bannerMessage
+          : "Your answer included context, an action, and a result. The interviewer is probing the reasoning behind your decision.");
+        publishFollowUp(generateContextualFollowUp({
+          previousQuestion: activeQuestion,
+          answer: transcript,
+          claim: activeClaim,
+          resumeData,
+          selectedRole,
+          experienceLevel,
+          persona: activePersona
+        }));
         setInitialAnswer(transcript);
+        setInitialDuration(duration);
         setTranscript(""); // clear for follow-up answer
         setDuration(0);
-
-        // Optionally read the follow-up aloud if autoTTS is enabled
-        if (userSettings?.autoTTS) {
-          speechService.speakQuestion(evaluation.followUpPrompt, activePersona.voiceSettings);
-        }
         return;
       }
     }
@@ -204,9 +248,16 @@ export const ProbeView = ({
         durationSeconds: duration + 10,
         apiKey: userSettings?.geminiApiKey
       });
-
+      
       setIsAnalyzing(false);
-      onFinishInterview(feedback, activeClaim, activeQuestion, fullCombinedAnswer, activePersona);
+      const feedbackWithDuration = {
+        ...feedback,
+        signals: {
+          ...feedback?.signals,
+          answerDurationSeconds: (drillDownActive ? initialDuration + duration : duration) || null
+        }
+      };
+      onFinishInterview(feedbackWithDuration, activeClaim, activeQuestion, fullCombinedAnswer, activePersona);
     } catch (e) {
       console.error("Feedback error:", e);
       setIsAnalyzing(false);
@@ -265,13 +316,15 @@ export const ProbeView = ({
           <span className="text-[11px] text-cyan-700">Affects questioning style & scrutiny</span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {INTERVIEWER_PERSONAS.map((persona) => {
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {INTERVIEWER_PERSONAS.filter(persona => persona.id !== "founder").map((persona) => {
             const isSelected = persona.id === selectedPersonaId;
             return (
               <button
                 key={persona.id}
-                onClick={() => setSelectedPersonaId(persona.id)}
+                type="button"
+                aria-pressed={isSelected}
+                onClick={() => handleSelectPersona(persona.id)}
                 className={`p-3.5 rounded-xl border text-left transition-all relative ${
                   isSelected
                     ? "border-cyan-500 bg-cyan-50 text-slate-900 shadow-lg shadow-cyan-500/10 ring-1 ring-cyan-500/40"
@@ -293,6 +346,14 @@ export const ProbeView = ({
           })}
         </div>
       </div>
+      {!selectedPersonaId && (
+        <p className="rounded-xl border border-cyan-200 bg-cyan-50 p-4 text-sm text-slate-700">
+          Select an interviewer persona to begin. Your first question and voice controls will appear after selection.
+        </p>
+      )}
+
+      {selectedPersonaId && activePersona && (
+        <>
         {/* Target Role Context */}
         <div className="rounded-xl border border-cyan-200 bg-cyan-50 p-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -390,12 +451,18 @@ export const ProbeView = ({
           </div>
 
           <button
-            onClick={handleSpeakQuestion}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-cyan-800 hover:bg-slate-50 hover:text-cyan-900 transition-colors"
-            title="Read question out loud using speech synthesis"
+            type="button"
+            role="switch"
+            aria-checked={isInterviewerVoiceOn}
+            onClick={() => setIsInterviewerVoiceOn(enabled => {
+              if (enabled) speechService.stopSpeaking();
+              return !enabled;
+            })}
+            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${isInterviewerVoiceOn ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-white text-slate-600"}`}
+            title="Automatically speak each new interviewer question"
           >
-            <Volume2 className="h-3.5 w-3.5 text-cyan-700" />
-            <span>Speak</span>
+            {isInterviewerVoiceOn ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+            <span>Interviewer Voice {isInterviewerVoiceOn ? "On" : "Off"}</span>
           </button>
         </div>
 
@@ -403,12 +470,12 @@ export const ProbeView = ({
         <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-5 sm:p-6 space-y-2">
           <div className="flex items-center justify-between text-xs text-cyan-800 font-mono">
             <span className="uppercase tracking-widest font-bold">
-              {drillDownActive ? "Follow-Up Drill-Down Question" : "Primary Technical Probe"}
+              {drillDownActive ? "Follow-Up Drill-Down Question" : "Primary Interview Question"}
             </span>
-            <span>Question {questionIndex + 1} of {activeClaim?.likelyQuestions?.length || 3}</span>
+            <span>Question {questionIndex + 1}</span>
           </div>
           <p className="text-base sm:text-lg font-bold text-slate-900 leading-relaxed">
-            "{drillDownActive ? drillDownQuestion : activeQuestion}"
+            "{displayedQuestion}"
           </p>
         </div>
 
@@ -550,7 +617,11 @@ export const ProbeView = ({
         </div>
 
       </div>
+        </>
+      )}
 
     </div>
   );
 };
+
+      

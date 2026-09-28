@@ -21,8 +21,27 @@ export const INTERVIEWER_PERSONAS = [
     }
   },
   {
+    id: "senior-developer",
+    name: "Senior Developer",
+    title: "Senior Software Developer",
+    avatar: "🧑‍💻",
+    avatarColor: "from-blue-500/20 to-cyan-600/30 border-blue-500/40 text-blue-400",
+    badgeColor: "bg-blue-500/10 text-blue-400 border-blue-500/30",
+    glowColor: "glow-blue",
+    tagline: "Implementation and code quality.",
+    description: "Focuses on implementation details, maintainability, testing, and practical engineering decisions.",
+    focusAreas: ["Implementation", "Code Quality", "Maintainability", "Testing"],
+    style: "Asks how code was implemented, tested, and kept maintainable.",
+    sampleQuote: "How did you test the database integration, and what would make that code easier to maintain?",
+    voiceSettings: {
+      pitch: 1,
+      rate: 1,
+      personaPrompt: "You are a senior developer. Ask about implementation choices, code quality, maintainability, tests, and engineering trade-offs."
+    }
+  },
+  {
     id: "hr-lead",
-    name: "Empathetic HR Lead",
+    name: "Recruiter / HR",
     title: "Head of Campus Talent Acquisition",
     avatar: "👩‍💼",
     avatarColor: "from-emerald-500/20 to-teal-600/30 border-emerald-500/40 text-emerald-400",
@@ -37,6 +56,25 @@ export const INTERVIEWER_PERSONAS = [
       pitch: 1.1,
       rate: 0.95,
       personaPrompt: "You are an empathetic, professional university recruiter. You evaluate structured communication, STAR storytelling, self-awareness, and career motivation."
+    }
+  },
+  {
+    id: "empathetic-coach",
+    name: "Empathetic Coach",
+    title: "Supportive Interview Coach",
+    avatar: "🧑‍🏫",
+    avatarColor: "from-teal-500/20 to-emerald-600/30 border-teal-500/40 text-teal-400",
+    badgeColor: "bg-teal-500/10 text-teal-400 border-teal-500/30",
+    glowColor: "glow-emerald",
+    tagline: "Supportive clarification and practice.",
+    description: "Helps you explain unclear areas step by step and probes constructively without adding pressure.",
+    focusAreas: ["Supportive Clarification", "Clear Explanations", "Constructive Probing", "Learning"],
+    style: "Uses encouraging prompts to help you explain a resume claim clearly, one step at a time.",
+    sampleQuote: "Let's take that project claim one step at a time. What part did you personally work on?",
+    voiceSettings: {
+      pitch: 1.08,
+      rate: 0.95,
+      personaPrompt: "You are an empathetic interview coach. Be supportive, ask for clarification of vague answers, and help the candidate explain evidence constructively."
     }
   },
   {

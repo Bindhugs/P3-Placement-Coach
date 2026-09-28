@@ -114,7 +114,7 @@ useEffect(() => {
   const projects = resumeData?.raw?.projects || [];
   const experience = resumeData?.raw?.experience || [];
   const presentationIssues = resumeData?.presentationIssues || [];
-  const detectedSections = resumeData?.detectedSections || ["Education", "Technical Skills", "Projects", "Experience"];
+  const detectedSections = resumeData?.detectedSections || [];
     // Recruiter X-Ray summary
   const recruiterStrengths = [];
 
@@ -254,8 +254,8 @@ useEffect(() => {
       const parsed = onUploadResumeText(extractionResult.text, file.name, file);
 
       // Step 3: Success state
-      const sectionCount = parsed?.detectedSections?.length || 4;
-      const claimCount = parsed?.claims?.length || 10;
+      const sectionCount = parsed?.detectedSections?.length ?? 0;
+      const claimCount = parsed?.claims?.length ?? 0;
 
       setAnalysisSuccess({
         fileName: file.name,
@@ -307,8 +307,8 @@ useEffect(() => {
       setTimeout(() => {
         try {
           const parsed = onUploadResumeText(pastedText, "Pasted Resume Text");
-          const sectionCount = parsed?.detectedSections?.length || 3;
-          const claimCount = parsed?.claims?.length || 8;
+          const sectionCount = parsed?.detectedSections?.length ?? 0;
+          const claimCount = parsed?.claims?.length ?? 0;
 
           setAnalysisSuccess({
             fileName: "Pasted Text Excerpt",
@@ -771,7 +771,7 @@ useEffect(() => {
         {missingRoleKeywords.length > 0 && (
           <div className="mt-3">
             <p className="text-[10px] uppercase tracking-wider text-slate-600 mb-2">
-              Evidence not detected
+                Skills not found in resume
             </p>
 
             <div className="flex flex-wrap gap-2">
@@ -848,6 +848,14 @@ useEffect(() => {
               Click any card to inspect cross-examination questions
             </span>
           </div>
+
+          {filteredClaims.length === 0 && (
+            <p className="rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-600">
+              {claims.length === 0
+                ? "No substantive project or experience claims were found. Add resume details that describe work you completed to see claims worth defending."
+                : "No claims match this risk filter."}
+            </p>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredClaims.map((claim) => {
@@ -929,7 +937,7 @@ useEffect(() => {
                 )}
               </h3>
               <p className="text-xs text-slate-600 mt-0.5">
-                {candidate.degree || "B.Tech in Computer Science"} · {candidate.university || "University"}
+                {candidate.degree || "Degree not detected"}{candidate.university ? ` · ${candidate.university}` : ""}
               </p>
             </div>
             <div className="text-xs font-mono text-slate-600">
@@ -989,19 +997,38 @@ useEffect(() => {
               </div>
 
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <span className="text-[10px] font-mono uppercase text-slate-600 block mb-1">Databases & Tools</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {(skills.databases || []).concat(skills.tools || []).length > 0 ? (
-                    (skills.databases || []).concat(skills.tools || []).slice(0, 8).map((s, idx) => (
-                      <span key={idx} className="rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-800 font-mono">
-                        {s}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-xs text-slate-600 italic">None detected</span>
-                  )}
-                </div>
-              </div>
+  <span className="text-[10px] font-mono uppercase text-slate-600 block mb-1">
+    Databases
+  </span>
+  <div className="flex flex-wrap gap-1.5">
+    {(skills.databases || []).length > 0 ? (
+      skills.databases.map((s, idx) => (
+        <span key={idx} className="rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-800 font-mono">
+          {s}
+        </span>
+      ))
+    ) : (
+      <span className="text-xs text-slate-600 italic">None detected</span>
+    )}
+  </div>
+</div>
+
+<div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+  <span className="text-[10px] font-mono uppercase text-slate-600 block mb-1">
+    Tools
+  </span>
+  <div className="flex flex-wrap gap-1.5">
+    {(skills.tools || []).length > 0 ? (
+      skills.tools.map((s, idx) => (
+        <span key={idx} className="rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-800 font-mono">
+          {s}
+        </span>
+      ))
+    ) : (
+      <span className="text-xs text-slate-600 italic">None detected</span>
+    )}
+  </div>
+</div>
             </div>
           </div>
 

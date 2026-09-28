@@ -10,28 +10,31 @@ import {
   RotateCcw,
   BookOpen
 } from "lucide-react";
-import { DEFAULT_7_DAY_PLAN } from "../../data/default7DayPlan";
 
 export const PlanView = ({ 
-  hasResumeAnalysis,
+  hasCompletedInterview,
+  plan,
   planProgress, 
   onToggleDay, 
   onPracticeDay 
 }) => {
   const [selectedDay, setSelectedDay] = useState(1);
+  const planDays = plan || [];
 
   // Compute completion stats
-  const totalDays = DEFAULT_7_DAY_PLAN.length;
+  const totalDays = planDays.length;
   const completedCount = Object.values(planProgress || {}).filter(Boolean).length;
   const progressPercent = Math.round((completedCount / totalDays) * 100);
 
-  const activeDayPlan = DEFAULT_7_DAY_PLAN.find(d => d.day === selectedDay) || DEFAULT_7_DAY_PLAN[0];
+  const activeDayPlan = planDays.find(d => d.day === selectedDay) || planDays[0];
 
-  if (!hasResumeAnalysis) {
+  if (!hasCompletedInterview || planDays.length === 0) {
     return (
-      <div className="flex min-h-64 items-center justify-center rounded-xl border border-slate-200 bg-white p-8 text-center">
-        <p className="text-sm font-semibold text-slate-700">
-          Analyze your resume to generate your personalized 7-day plan.
+      <div className="flex min-h-64 flex-col items-center justify-center rounded-xl border border-slate-200 bg-white p-8 text-center">
+        <CalendarDays className="mb-3 h-8 w-8 text-slate-400" />
+        <h1 className="text-lg font-bold text-slate-900">7-Day Plan Locked</h1>
+        <p className="mt-2 max-w-md text-sm text-slate-600">
+          Complete a mock interview and generate your personalized feedback to unlock a plan based on your interview results and resume evidence.
         </p>
       </div>
     );
@@ -75,7 +78,7 @@ export const PlanView = ({
 
       {/* Days Interactive Navigation Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
-        {DEFAULT_7_DAY_PLAN.map((item) => {
+        {planDays.map((item) => {
           const isCompleted = !!planProgress[item.day];
           const isSelected = selectedDay === item.day;
 
@@ -132,12 +135,12 @@ export const PlanView = ({
           <button
             onClick={() => onToggleDay(activeDayPlan.day)}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
-              planProgress[activeDayPlan.day]
+              planProgress?.[activeDayPlan.day]
                 ? "bg-emerald-50 border-emerald-200 text-emerald-800"
                 : "bg-slate-50 border-slate-200 text-slate-700 hover:text-slate-900"
             }`}
           >
-            {planProgress[activeDayPlan.day] ? (
+            {planProgress?.[activeDayPlan.day] ? (
               <>
                 <CheckCircle2 className="h-4 w-4 text-emerald-700" />
                 <span>Marked Complete</span>
