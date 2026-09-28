@@ -36,7 +36,7 @@ export class ResumeParser {
       raw: SAMPLE_RESUME,
       claims: PRE_ANALYZED_CLAIMS,
       presentationIssues: PRESENTATION_ISSUES,
-      stats: {
+           stats: {
         totalClaims: PRE_ANALYZED_CLAIMS.length,
         highRisk: PRE_ANALYZED_CLAIMS.filter(c => c.riskLevel === "HIGH").length,
         mediumRisk: PRE_ANALYZED_CLAIMS.filter(c => c.riskLevel === "MEDIUM").length,
@@ -50,7 +50,21 @@ export class ResumeParser {
   // Parse raw text extracted from student resume
   parseTextContent(text, fileName = "Uploaded Resume") {
     if (!text || text.trim().length === 0) {
-      return this.getSampleResume();
+      return {
+        raw: {
+          candidate: { name: "", degree: "", summary: "" },
+          skills: { languages: [], frameworks: [], databases: [], tools: [] },
+          projects: [],
+          experience: [],
+          certifications: []
+        },
+        claims: [],
+        presentationIssues: [],
+        stats: { totalClaims: 0, highRisk: 0, mediumRisk: 0, lowRisk: 0 },
+        detectedSections: [],
+        sourceName: fileName,
+        error: "No usable text could be extracted from the uploaded resume."
+      };
     }
 
     // Normalize and split text into logical lines / bullets even if PDF output has few newlines
@@ -82,11 +96,6 @@ export class ResumeParser {
         }
       });
     });
-
-    if (detectedSectionsSet.size === 0) {
-      detectedSectionsSet.add("Projects & Experience");
-      detectedSectionsSet.add("Technical Skills");
-    }
 
     // Extract detected technical skills
     const detectedSkills = [];
@@ -188,21 +197,23 @@ export class ResumeParser {
       }
     });
 
-    // If text had very few identifiable claims, supplement with smart fallback
-    const finalClaims = extractedClaims.length >= 2 ? extractedClaims : PRE_ANALYZED_CLAIMS;
+    const finalClaims = extractedClaims;
     const detectedSections = Array.from(detectedSectionsSet);
+    const parseError = finalClaims.length === 0 && detectedSkills.length === 0
+      ? "No usable resume content could be identified in the uploaded text."
+      : undefined;
 
     // Extract potential candidate name from top lines
-    const topNonEmptyLine = lines[0] || "Candidate";
+    const topNonEmptyLine = lines[0] || "";
     const candidateName = topNonEmptyLine.length < 35 && !topNonEmptyLine.includes(":") 
       ? topNonEmptyLine 
-      : "Uploaded Candidate Profile";
+      : "";
 
     return {
       raw: {
         candidate: {
           name: candidateName,
-          degree: detectedSections.includes("Education") ? "Detected Degree" : "University Degree",
+          degree: "",
           summary: lines.slice(0, 3).join(" ")
         },
         skills: {
@@ -214,50 +225,45 @@ export class ResumeParser {
   ),
 
   frameworks: detectedSkills.filter(skill =>
-    [
-      "React", "Node.js", "Express", "Flask",
-      "FastAPI", "Django", "Spring Boot", "Next.js", "Tailwind"
-    ].includes(skill)
-  ),
+  [
+    "React", "Node.js", "Express", "Flask",
+    "FastAPI", "Django", "Spring Boot", "Next.js", "Tailwind"
+  ].includes(skill)
+),
 
-  databases: detectedSkills.filter(skill =>
-    [
-      "SQL", "MySQL", "PostgreSQL", "MongoDB",
-      "Redis", "SQLite", "DynamoDB"
-    ].includes(skill)
-  ),
+databases: detectedSkills.filter(skill =>
+  [
+    "MySQL", "PostgreSQL", "MongoDB",
+    "Redis", "SQLite", "DynamoDB"
+  ].includes(skill)
+),
 
-  tools: detectedSkills.filter(skill =>
-    [
-      "Docker", "Kubernetes", "AWS", "Azure", "GCP",
-      "Git", "GitHub", "Linux", "CI/CD",
-      "Pandas", "NumPy", "Scikit-Learn",
-      "TensorFlow", "PyTorch"
-    ].includes(skill)
-  )
+tools: detectedSkills.filter(skill =>
+  [
+    "Docker", "Kubernetes", "AWS", "Azure", "GCP",
+    "Git", "GitHub", "VS Code", "Linux", "CI/CD",
+    "Pandas", "NumPy", "Scikit-Learn",
+    "TensorFlow", "PyTorch"
+  ].includes(skill)
+)
+        },
+       projects: [],
+experience: [],
+certifications: []
 },
-        projects: [
-          {
-            id: "extracted-proj-1",
-            title: "Analyzed Resume Project & Experience",
-            timeline: "Extracted from Resume",
-            stack: detectedSkills.slice(0, 4),
-            bullets: finalClaims.slice(0, 3).map(c => c.claim)
-          }
-        ]
-      },
-      claims: finalClaims,
-      presentationIssues: presentationIssues.length > 0 ? presentationIssues : PRESENTATION_ISSUES,
-      stats: {
-        totalClaims: finalClaims.length,
-        highRisk: finalClaims.filter(c => c.riskLevel === "HIGH").length,
-        mediumRisk: finalClaims.filter(c => c.riskLevel === "MEDIUM").length,
-        lowRisk: finalClaims.filter(c => c.riskLevel === "LOW").length
-      },
-      detectedSections,
-      sourceName: fileName
-    };
-  }
+claims: finalClaims,
+presentationIssues,
+stats: {
+  totalClaims: finalClaims.length,
+  highRisk: finalClaims.filter(c => c.riskLevel === "HIGH").length,
+  mediumRisk: finalClaims.filter(c => c.riskLevel === "MEDIUM").length,
+  lowRisk: finalClaims.filter(c => c.riskLevel === "LOW").length
+},
+detectedSections,
+sourceName: fileName,
+error: parseError
+};
+}
 }
 
 export const resumeParser = new ResumeParser();
