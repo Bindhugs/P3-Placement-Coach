@@ -175,34 +175,34 @@ class SpeechService {
     // Treat "like" and "so" as fillers only in common discourse-marker positions.
     const detectedFillers = [];
     let fillerCount = 0;
+    const isFillerUse = (filler, matchIndex, matchLength) => {
+      if (["um", "uh", "erm", "hmm"].includes(filler)) return true;
+
+      const before = transcript.slice(0, matchIndex);
+      const after = transcript.slice(matchIndex + matchLength);
+      const startsClause = !before.trim() || /[,;.!?]\s*$/.test(before);
+      const endsClause = !after.trim() || /^\s*[,;.!?]/.test(after);
+      const followsSpeaker = /\b(?:i|we|they|he|she|it)\s*$/i.test(before);
+      const isBracketedPause = /[,;]\s*$/.test(before) && /^\s*[,;.!?]/.test(after);
+
+      if (filler === "like") return startsClause && endsClause;
+      if (filler === "basically") return startsClause || followsSpeaker;
+      if (["actually", "literally", "i mean", "you know", "so"].includes(filler)) {
+        return startsClause || isBracketedPause || !after.trim();
+      }
+      if (["sort of", "kind of"].includes(filler)) return startsClause || followsSpeaker || isBracketedPause;
+      if (filler === "right") return startsClause || isBracketedPause || !after.trim();
+      return false;
+    };
 
     FILLER_WORDS.forEach(filler => {
       const escaped = filler.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      let matches;
-      if (filler === "like") {
-        const lowerTranscript = transcript.toLowerCase();
-        matches = [];
-        let searchIndex = 0;
-        let matchIndex = lowerTranscript.indexOf("like", searchIndex);
-        while (matchIndex !== -1) {
-          const previousCharacter = lowerTranscript[matchIndex - 1] || " ";
-          const nextCharacter = lowerTranscript[matchIndex + 4] || " ";
-          const before = transcript.slice(0, matchIndex).trimEnd();
-          const after = transcript.slice(matchIndex + 4).trimStart();
-          const isWholeWord = !/[a-z']/i.test(previousCharacter) && !/[a-z']/i.test(nextCharacter);
-          const followsPause = !before || /[,;.!?]$/.test(before) || /\b(?:was|were|is|are)[,;]?$/.test(before.toLowerCase());
-          const endsAtPause = !after || ",;.!?".includes(after[0]);
-          if (isWholeWord && followsPause && endsAtPause) matches.push("like");
-          searchIndex = matchIndex + 4;
-          matchIndex = lowerTranscript.indexOf("like", searchIndex);
-        }
-      } else {
-        const regex = filler === "so"
-          ? /(?:^|[.!?]\s+|[,;]\s+)so\b/gi
-          : new RegExp(`\\b${escaped}\\b`, "gi");
-        matches = transcript.match(regex);
-      }
-      if (matches) {
+      const regex = filler === "so"
+        ? /(?:^|[.!?]\s+|[,;]\s+)so\b/gi
+        : new RegExp(`\\b${escaped}\\b`, "gi");
+      const matches = [...transcript.matchAll(regex)]
+        .filter(match => isFillerUse(filler, match.index + (filler === "so" && /^[.!?,;\s]/.test(match[0]) ? match[0].search(/\bso\b/i) : 0), filler.length));
+      if (matches.length) {
         fillerCount += matches.length;
         detectedFillers.push({ word: filler, count: matches.length });
       }

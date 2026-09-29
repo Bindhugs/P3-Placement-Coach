@@ -199,10 +199,6 @@ export const ProgressView = ({
               const betterAnswer = scorePercent !== null && scorePercent < 90
                 ? (attempt.betterAnswer || attempt.feedback?.answerEvaluation?.betterAnswer || attempt.feedback?.modelAnswer)
                 : null;
-              const evaluation = attempt.evaluation;
-              const evaluationDimensions = Object.entries(evaluation?.dimensions || {})
-                .filter(([, value]) => Number.isFinite(value));
-              const voiceData = attempt.answerMode === "voice" ? attempt.voiceAnalysis : null;
 
               return (
                 <article key={`${attempt.interviewTimestamp}-${attempt.attemptIndex}`} className="rounded-xl border border-slate-200 p-4 space-y-3">
@@ -216,17 +212,7 @@ export const ProgressView = ({
                       <p className="text-xs text-slate-600">{getQuestionStatus(attempt)}</p>
                     </div>
                   </div>
-                  <div className="grid gap-3 text-xs sm:grid-cols-2">
-                    <div><span className="block font-semibold text-slate-500">Answer ({attempt.answerMode === "voice" ? "Voice" : "Text"})</span><p className="mt-1 whitespace-pre-wrap text-slate-700">{attempt.answer || "No answer saved"}</p></div>
-                    <div>
-                      <span className="block font-semibold text-slate-500">Evaluation</span>
-                      <p className="mt-1 text-slate-700">{evaluation?.summary || evaluation?.reason || attempt.feedback?.answerEvaluation?.summary || "No evaluation details saved"}</p>
-                      {evaluationDimensions.length > 0 && <p className="mt-1 text-slate-600">{evaluationDimensions.map(([dimension, value]) => `${dimension.replace(/([A-Z])/g, " $1")}: ${value}%`).join(" · ")}</p>}
-                    </div>
-                  </div>
-                  {voiceData && <p className="text-xs text-slate-600">Voice: {voiceData.fillerCount ?? "N/A"} fillers · {voiceData.fillerPercentage ?? "N/A"}% · {voiceData.durationSeconds ?? attempt.durationSeconds ?? "N/A"}s · {voiceData.wordsPerMinute ?? "N/A"} WPM · {voiceData.pacingAssessment || "Pacing unavailable"}</p>}
                   {betterAnswer && <div className="rounded-lg bg-cyan-50 p-3 text-xs"><p className="font-semibold text-cyan-900">Better Answer</p><p className="mt-1 whitespace-pre-wrap text-slate-700">{betterAnswer}</p></div>}
-                  {attempt.role && <p className="text-[11px] text-slate-500">{attempt.role}{attempt.experienceLevel ? ` · ${attempt.experienceLevel}` : ""}{attempt.persona?.name ? ` · ${attempt.persona.name}` : ""}{attempt.claimText ? ` · ${attempt.claimText}` : ""}</p>}
                 </article>
               );
             })}
@@ -236,6 +222,7 @@ export const ProgressView = ({
 
       {feedback ? (
         <>
+      {questionAttempts.length === 0 && <>
       {/* Overview Context Card */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-3">
         <div className="flex flex-wrap items-center justify-between text-xs text-slate-600 gap-2 border-b border-slate-200 pb-3">
@@ -450,6 +437,7 @@ export const ProgressView = ({
           Notice how the answer specifies the mechanism (idempotency key in Redis, HMAC webhooks, READ COMMITTED transactions) and addresses failure modes without rambling.
         </p>
       </div>}
+      </>}
 
       {/* Bottom Action Bar */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-200 pt-6">

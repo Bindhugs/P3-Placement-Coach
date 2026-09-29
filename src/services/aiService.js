@@ -92,36 +92,36 @@ class AIService {
       const personaId = persona?.id || "tech-lead";
       const templates = {
         "tech-lead": [
-          `In your ${projectName}, how did you approach ${topic.topic} and what trade-off did you evaluate while implementing it?`,
-          `For ${projectName}, walk me through the concrete decision you made around ${topic.topic}, and how you validated that it was the right choice.`,
-          `When you worked on ${topic.topic} in ${projectName}, what failure mode or edge case did you plan for, and how did you handle it?`
+          `How did you apply ${topic.topic}, and what trade-off did you consider?`,
+          `What decision did you make about ${topic.topic}, and how did you validate it?`,
+          `What edge case did you plan for while working on ${topic.topic}?`
         ],
         "senior-developer": [
-          `In ${projectName}, how did you implement ${topic.topic}, and what did you do to keep that work testable and maintainable?`,
-          `What code-level decisions did you make for ${topic.topic} in ${projectName}, and which part would you improve if you rebuilt it?`,
-          `How did you verify ${topic.topic} in ${projectName}, and which edge case mattered most for the final result?`
+          `How did you implement ${topic.topic}, and what kept it testable?`,
+          `What decision would you change if you rebuilt this work?`,
+          `How did you verify ${topic.topic}, and which edge case mattered most?`
         ],
         "hr-lead": [
-          `For ${projectName}, what was your specific responsibility in ${topic.topic}, and how did you communicate that work to the team or stakeholder?`,
-          `When working on ${topic.topic} in ${projectName}, what did you personally own, and what did you learn from the outcome?`,
-          `How would you explain your contribution to ${topic.topic} in ${projectName} in a structured, clear way to a hiring manager?`
+          `What was your responsibility, and how did you communicate your work?`,
+          `What part did you own, and what did you learn from the outcome?`,
+          `How would you explain your contribution to a hiring manager?`
         ],
         "empathetic-coach": [
-          `Let’s break down your work on ${topic.topic} in ${projectName}. What was the main problem, what did you do, and what outcome did you see?`,
-          `Could you walk through the specific part you handled in ${projectName} for ${topic.topic}, and what decision you made along the way?`,
-          `When you explain ${topic.topic}, what is the clearest example from ${projectName} that shows your contribution?`
+          `What problem were you solving, what did you do, and what changed?`,
+          `What part did you handle, and what decision did you make?`,
+          `What example best shows your contribution?`
         ],
         "founder": [
-          `In ${projectName}, how did ${topic.topic} create value or reduce risk, and what evidence showed it worked?`,
-          `What was the most important decision in ${topic.topic} for ${projectName}, and what trade-off did it force?`,
-          `If you had one more sprint on ${topic.topic} in ${projectName}, what would you improve first and why?`
+          `What value did ${topic.topic} create, and what evidence showed it worked?`,
+          `What was your most important decision, and what trade-off did it force?`,
+          `What would you improve first with one more sprint?`
         ]
       };
 
       const templateSet = templates[personaId] || templates["tech-lead"];
       const question = templateSet[questionIndex % templateSet.length];
       return {
-        question: selectedRole ? `For the ${selectedRole} role, ${question}` : question,
+        question,
         metadata: {
           sourceType: "plan",
           sourceTopic: topic.topic,
@@ -167,7 +167,7 @@ class AIService {
     const wordCount = words.length;
 
     // Condition 1: Extremely short response (< 18 words)
-    if (wordCount < 18) {
+    if (wordCount < 18 && !/(because|so that|which means|for example|i chose|we chose|i used|we used)/i.test(trimmed)) {
       return {
         needsDrillDown: true,
         reason: "TOO_SHORT",
@@ -178,7 +178,7 @@ class AIService {
 
     // Condition 2: Lacks specific technical substance (detect buzzword without mechanism)
     const matchesTech = words.filter(w => TECHNICAL_VOCABULARY.includes(w));
-    if (matchesTech.length === 0 && wordCount < 40) {
+    if (matchesTech.length === 0 && wordCount >= 18 && wordCount < 40) {
       return {
         needsDrillDown: true,
         reason: "LACKS_SPECIFICS",

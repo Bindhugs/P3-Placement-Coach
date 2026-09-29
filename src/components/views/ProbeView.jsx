@@ -153,18 +153,46 @@ export const ProbeView = ({
   }, [activeClaim, resumeData, selectedRole, experienceLevel, selectedPersonaId, activePersona, plan, planProgress]);
 
   useEffect(() => {
-    if (!selectedPersonaId || !activePersona || !isInterviewerVoiceOn || !displayedQuestion || lastSpokenRevisionRef.current === questionRevision) return;
-    const spoken = speechService.speakQuestion(displayedQuestion, activePersona.voiceSettings, (error) => {
-      lastSpokenRevisionRef.current = null;
-      setSpeechError(error.message);
-    });
+  if (
+    !selectedPersonaId ||
+    !activePersona ||
+    !isInterviewerVoiceOn ||
+    !displayedQuestion ||
+    lastSpokenRevisionRef.current === questionRevision
+  ) {
+    return;
+  }
+
+  const timer = setTimeout(() => {
+    speechService.stopSpeaking();
+
+    const spoken = speechService.speakQuestion(
+      displayedQuestion,
+      activePersona.voiceSettings,
+      (error) => {
+        lastSpokenRevisionRef.current = null;
+        setSpeechError(error.message);
+      }
+    );
+
     if (spoken) {
       lastSpokenRevisionRef.current = questionRevision;
       setSpeechError(null);
     } else {
-      setSpeechError("Interviewer speech is unavailable in this browser. You can continue with the question on screen.");
+      setSpeechError(
+        "Interviewer speech is unavailable in this browser. You can continue with the question on screen."
+      );
     }
-  }, [selectedPersonaId, displayedQuestion, questionRevision, isInterviewerVoiceOn, activePersona]);
+  }, 100);
+
+  return () => clearTimeout(timer);
+}, [
+  selectedPersonaId,
+  displayedQuestion,
+  questionRevision,
+  isInterviewerVoiceOn,
+  activePersona
+]);
 
   useEffect(() => () => {
     speechService.stopSpeaking();
@@ -381,8 +409,6 @@ export const ProbeView = ({
       submittedMode === "voice" ? submittedDuration : 0
     );
     const completeness = isFollowUp ? null : aiService.evaluateAnswerCompleteness(submittedAnswer, activeClaim);
-    const answerIsStrong = answerSignals?.wordCount >= 35 &&
-      answerSignals.hasContext && answerSignals.hasAction && answerSignals.hasResult;
 
     try {
       const feedback = await aiService.generateFeedback({
@@ -465,7 +491,7 @@ export const ProbeView = ({
       answerHistoryRef.current = [...answerHistoryRef.current, answerAttempt];
       setIsAnalyzing(false);
 
-      if (!isFollowUp && (completeness.needsDrillDown || answerIsStrong)) {
+      if (!isFollowUp && completeness?.needsDrillDown && (scorePercent === null || scorePercent < 90)) {
         setDrillDownActive(true);
         setDrillDownBanner(completeness.needsDrillDown
           ? completeness.bannerMessage
