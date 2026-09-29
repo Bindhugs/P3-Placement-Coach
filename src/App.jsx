@@ -60,6 +60,7 @@ export default function App() {
   const [lastFeedback, setLastFeedback] = useState(null);
   const [lastQuestion, setLastQuestion] = useState("");
   const [lastAnswer, setLastAnswer] = useState("");
+  const [lastAnswerMode, setLastAnswerMode] = useState("text");
   const [lastPersona, setLastPersona] = useState(() => getPersonaById("tech-lead"));
 
   // Sync AI mode with aiService
@@ -82,6 +83,7 @@ export default function App() {
       setLastFeedback(null);
       setLastQuestion("");
       setLastAnswer("");
+      setLastAnswerMode("text");
     };
     window.addEventListener("p3_data_cleared", handleReset);
     return () => window.removeEventListener("p3_data_cleared", handleReset);
@@ -131,10 +133,11 @@ export default function App() {
   };
 
   // Finish Interview: Stores session, updates stats, transitions to Feedback
-  const handleFinishInterview = (feedback, claim, question, answer, persona) => {
+  const handleFinishInterview = (feedback, claim, question, answer, persona, attempt = {}) => {
     setLastFeedback(feedback);
     setLastQuestion(question);
     setLastAnswer(answer);
+    setLastAnswerMode(attempt.answerMode || "text");
     setLastPersona(persona);
     setPersonalizedPlan(generatePersonalizedPlan(feedback, resumeData, claim, selectedRole, experienceLevel));
     setPlanProgress({});
@@ -146,17 +149,30 @@ export default function App() {
       claimText: claim?.claim || "Project Claim",
       question,
       personaName: persona?.name || "Tech Lead",
-      score: feedback?.scores?.overallReadiness || 72,
-      duration: feedback?.signals?.answerDurationSeconds ?? 0
+      answer,
+      answerMode: attempt.answerMode,
+      answers: attempt.answers || [],
+      feedback,
+      voiceAnalysis: attempt.voiceAnalysis || null,
+      personaId: persona?.id || null,
+      role: selectedRole,
+      experienceLevel,
+      score: Number.isFinite(feedback?.scores?.overallReadiness) ? feedback.scores.overallReadiness : null,
+      duration: attempt.durationSeconds ?? 0
     };
     storage.addSessionRecord(sessionRecord);
     setRecentSessions(storage.getRecentSessions());
 
     // Update readiness score
+    const overallReadiness = feedback?.scores?.overallReadiness;
     const newStats = {
       ...stats,
       sessionsCompleted: (stats.sessionsCompleted || 0) + 1,
-      readinessScore: Math.round(((stats.readinessScore || 70) * 0.7) + (feedback.scores.overallReadiness * 0.3))
+      ...(Number.isFinite(overallReadiness) ? {
+        readinessScore: Number.isFinite(stats.readinessScore)
+          ? Math.round((stats.readinessScore * 0.7) + (overallReadiness * 0.3))
+          : Math.round(overallReadiness)
+      } : {})
     };
     storage.saveStats(newStats);
     setStats(newStats);
@@ -342,6 +358,8 @@ export default function App() {
             questionAsked={lastQuestion}
             candidateAnswer={lastAnswer}
             persona={lastPersona}
+            answerMode={lastAnswerMode}
+            recentSessions={recentSessions}
             onRetry={() => setActiveView("probe")}
             onGoToPlan={() => setActiveView("plan")}
             onNextClaim={() => {

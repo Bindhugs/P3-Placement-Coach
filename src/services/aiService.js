@@ -238,23 +238,24 @@ class AIService {
   }
 
   // Generate Comprehensive Feedback (Offline Heuristic + Observable Signal Engine)
-  async generateFeedback({ claim, question, answer, persona, durationSeconds, apiKey = "" }) {
+  async generateFeedback({ claim, question, answer, persona, durationSeconds, answerMode = "voice", apiKey = "" }) {
     // Check if Gemini API mode is active and user provided a key
     if (this.mode === "gemini" && apiKey) {
       try {
-        return await this.callGeminiAPI({ claim, question, answer, persona, durationSeconds, apiKey });
+        return await this.callGeminiAPI({ claim, question, answer, persona, durationSeconds, answerMode, apiKey });
       } catch (err) {
         console.warn("P3 Gemini API call failed or timed out. Gracefully falling back to Offline Smart Mode.", err);
         // Fall through to offline heuristic engine
       }
     }
 
-    return this.generateOfflineFeedback({ claim, question, answer, persona, durationSeconds });
+    return this.generateOfflineFeedback({ claim, question, answer, persona, durationSeconds, answerMode });
   }
 
   // Offline Smart Feedback Engine (Default)
-  generateOfflineFeedback({ claim, question, answer, persona, durationSeconds }) {
+  generateOfflineFeedback({ claim, question, answer, persona, durationSeconds, answerMode = "voice" }) {
     const signals = speechService.analyzeAnswerSignals(answer, durationSeconds);
+    const isVoiceAnswer = answerMode === "voice";
     const lowerAnswer = (answer || "").toLowerCase();
     const words = lowerAnswer.split(/\s+/).filter(Boolean);
 
@@ -268,9 +269,9 @@ class AIService {
 
     // 2. Calculate Communication Score
     let commScore = 75;
-    if (signals.fillerPercentage > 6) commScore -= 20;
-    else if (signals.fillerPercentage > 3) commScore -= 10;
-    if (signals.wordsPerMinute > 170 || signals.wordsPerMinute < 85) commScore -= 10;
+    if (isVoiceAnswer && signals.fillerPercentage > 6) commScore -= 20;
+    else if (isVoiceAnswer && signals.fillerPercentage > 3) commScore -= 10;
+    if (isVoiceAnswer && (signals.wordsPerMinute > 170 || signals.wordsPerMinute < 85)) commScore -= 10;
     if (signals.hasContext) commScore += 8;
     commScore = Math.max(30, Math.min(96, commScore));
 
@@ -291,12 +292,12 @@ class AIService {
     if (signals.hasContext) {
       whatYouDidWell.push("Clearly framed the context and problem before jumping into the solution.");
     }
-    if (signals.fillerCount <= 2 && words.length > 30) {
+    if (isVoiceAnswer && signals.fillerCount <= 2 && words.length > 30) {
       whatYouDidWell.push("Clean vocal delivery with minimal filler words, projecting confidence.");
     }
 
     // Evaluate Gaps / Areas to Improve
-    if (signals.fillerCount > 3) {
+    if (isVoiceAnswer && signals.fillerCount > 3) {
       whatYouShouldWorkOn.push(`Detected ${signals.fillerCount} filler words (${signals.detectedFillers.map(f => `"${f.word}" x${f.count}`).join(", ")}). Practice silent 1-second pauses instead of vocalized fillers.`);
     }
 
@@ -322,9 +323,30 @@ class AIService {
         answerStructure: structureScore,
         overallReadiness: Math.round((techScore * 0.45) + (commScore * 0.3) + (structureScore * 0.25))
       },
-      signals,
+      signals: isVoiceAnswer ? signals : {
+        ...signals,
+        wordsPerMinute: undefined,
+        fillerCount: undefined,
+        fillerPercentage: undefined,
+        detectedFillers: undefined,
+        pacingAssessment: undefined
+      },
       whatYouDidWell,
       whatYouShouldWorkOn,
+      answerEvaluation: {
+        scorePercent: Math.round((techScore * 0.45) + (commScore * 0.3) + (structureScore * 0.25)),
+        source: "offline-heuristic",
+        summary: "Offline heuristic estimate; semantic correctness cannot be independently verified without AI evaluation.",
+        dimensions: {
+          correctness: null,
+          technicalAccuracy: null,
+          relevance: null,
+          completeness: null,
+          reasoning: null,
+          understanding: null
+        },
+        betterAnswer: null
+      },
       modelAnswer,
       personaId: persona?.id || "tech-lead",
       modeUsed: "offline"
@@ -351,7 +373,7 @@ class AIService {
   }
 
   // Optional Gemini API integration (with client-side PII scrubbing)
-  async callGeminiAPI({ claim, question, answer, persona, durationSeconds, apiKey }) {
+  async callGeminiAPI({ claim, question, answer, persona, durationSeconds, answerMode = "voice", apiKey }) {
     // Sanitize before transmission
     const sanitizedClaim = sanitizePII(claim?.claim || "");
     const sanitizedQuestion = sanitizePII(question || "");
@@ -361,6 +383,8 @@ class AIService {
 Persona: ${persona?.name} (${persona?.style})
 Resume Claim being defended: "${sanitizedClaim}"
 Interview Question Asked: "${sanitizedQuestion}"
+Answer mode: ${answerMode}
+${answerMode === "voice" ? "Assess vocal delivery from the supplied voice metrics only." : "Assess written answer quality; do not infer speaking pace, pauses, or filler-word delivery."}
 Candidate Answer: "${sanitizedAnswer}"
 Duration: ${durationSeconds} seconds
 
@@ -369,11 +393,15 @@ Provide structured JSON feedback with:
   "technicalDepth": 0-100,
   "communication": 0-100,
   "answerStructure": 0-100,
+  "correctnessPercent": 0-100,
+  "evaluationDimensions": { "correctness": 0-100, "technicalAccuracy": 0-100, "relevance": 0-100, "completeness": 0-100, "reasoning": 0-100, "understanding": 0-100 },
+  "evaluationSummary": "Assess correctness, technical accuracy, relevance to the question, completeness, reasoning, and demonstrated understanding. Judge meaning, not matching wording.",
+  "betterAnswer": "A concise stronger answer grounded in the candidate's answer and resume; use an empty string when correctnessPercent is 90 or higher.",
   "whatYouDidWell": ["point 1", "point 2"],
   "whatYouShouldWorkOn": ["point 1", "point 2"],
   "modelAnswer": "How a top candidate should defend this claim concisely"
-}`;
-
+}
+Map correctnessPercent to 10/10 at 90-100, 9/10 at 80-89, 8/10 at 70-79, 7/10 at 60-69, 6/10 at 50-59, 5/10 at 40-49, and 1-4/10 below 40. A genuinely correct, relevant, complete explanation in the candidate's own words must score at least 90; do not penalize different wording.`;
     // Call Google Gemini API endpoint
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
       method: "POST",
@@ -392,7 +420,15 @@ Provide structured JSON feedback with:
     const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
     const parsed = JSON.parse(rawText);
 
-    const signals = speechService.analyzeAnswerSignals(answer, durationSeconds);
+    const analyzedSignals = speechService.analyzeAnswerSignals(answer, durationSeconds);
+    const signals = answerMode === "voice" ? analyzedSignals : {
+      ...analyzedSignals,
+      wordsPerMinute: undefined,
+      fillerCount: undefined,
+      fillerPercentage: undefined,
+      detectedFillers: undefined,
+      pacingAssessment: undefined
+    };
 
     return {
       scores: {
@@ -404,6 +440,13 @@ Provide structured JSON feedback with:
       signals,
       whatYouDidWell: parsed.whatYouDidWell || [],
       whatYouShouldWorkOn: parsed.whatYouShouldWorkOn || [],
+      answerEvaluation: Number.isFinite(parsed.correctnessPercent) ? {
+        scorePercent: Math.max(0, Math.min(100, parsed.correctnessPercent)),
+        source: "gemini-semantic",
+        summary: parsed.evaluationSummary || "Semantic answer evaluation completed.",
+        dimensions: parsed.evaluationDimensions || null,
+        betterAnswer: parsed.correctnessPercent >= 90 ? null : (parsed.betterAnswer || "")
+      } : null,
       modelAnswer: parsed.modelAnswer || this.generateExemplaryModelAnswer(claim, question),
       personaId: persona?.id || "tech-lead",
       modeUsed: "gemini"

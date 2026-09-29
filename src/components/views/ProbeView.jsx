@@ -8,11 +8,7 @@ import {
   Send, 
   AlertCircle, 
   Sparkles, 
-  HelpCircle, 
-  ShieldAlert, 
   Flame, 
-  Clock, 
-  CheckCircle2,
   Users,
   VolumeX
 } from "lucide-react";
@@ -21,6 +17,36 @@ import { INTERVIEWER_PERSONAS, getPersonaById } from "../../data/personas";
 import { speechService } from "../../services/speechService";
 import { aiService } from "../../services/aiService";
 import { generateContextualFollowUp } from "../../services/coachingService";
+
+const EMPTY_PLAN = [];
+const EMPTY_PLAN_PROGRESS = {};
+
+const getQuestionScoreBand = (scorePercent) => {
+  const boundedScore = Math.max(0, Math.min(100, Number(scorePercent)));
+  const scoreOutOf10 = boundedScore >= 90
+    ? 10
+    : boundedScore >= 80
+      ? 9
+      : boundedScore >= 70
+        ? 8
+        : boundedScore >= 60
+          ? 7
+          : boundedScore >= 50
+            ? 6
+            : boundedScore >= 40
+              ? 5
+              : Math.max(1, Math.ceil(boundedScore / 10));
+
+  return {
+    scorePercent: boundedScore,
+    scoreOutOf10,
+    status: boundedScore >= 90
+      ? "Answered correctly"
+      : boundedScore >= 80
+        ? "Mostly correct / minor improvement"
+        : "Needs improvement"
+  };
+};
 
 export const ProbeView = ({ 
   activeClaim, 
@@ -31,8 +57,8 @@ export const ProbeView = ({
   selectedRole,
   experienceLevel,
   resumeData,
-  plan = [],
-  planProgress = {}
+  plan = EMPTY_PLAN,
+  planProgress = EMPTY_PLAN_PROGRESS
 }) => {
   // Selected persona state
   const [selectedPersonaId, setSelectedPersonaId] = useState(null);
@@ -43,8 +69,8 @@ export const ProbeView = ({
   const [questionIndex, setQuestionIndex] = useState(0);
   const [questionRevision, setQuestionRevision] = useState(0);
   const [isInterviewerVoiceOn, setIsInterviewerVoiceOn] = useState(userSettings?.voiceEnabled !== false);
+  const [speechError, setSpeechError] = useState(null);
   const [answerMode, setAnswerMode] = useState("text");
-  const [initialAnswerMode, setInitialAnswerMode] = useState("text");
 
   // Recording & Answer state
   const [isListening, setIsListening] = useState(false);
@@ -62,15 +88,21 @@ export const ProbeView = ({
   const [drillDownActive, setDrillDownActive] = useState(false);
   const [drillDownBanner, setDrillDownBanner] = useState("");
   const [drillDownQuestion, setDrillDownQuestion] = useState("");
-  const [initialAnswer, setInitialAnswer] = useState("");
-  const [initialDuration, setInitialDuration] = useState(0);
 
   // Processing loader
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const timerRef = useRef(null);
+  const answerStartedAtRef = useRef(null);
+  const answerHistoryRef = useRef([]);
   const lastSpokenRevisionRef = useRef(null);
   const displayedQuestion = drillDownActive ? drillDownQuestion : activeQuestion;
+
+  const finishRecording = () => {
+    if (answerStartedAtRef.current === null) return;
+    setDuration(Math.max(0, Math.round((Date.now() - answerStartedAtRef.current) / 1000)));
+    answerStartedAtRef.current = null;
+  };
 
   const publishQuestion = (question) => {
     setActiveQuestion(question);
@@ -110,19 +142,28 @@ export const ProbeView = ({
     setQuestionIndex(0);
     setTranscript("");
     setDuration(0);
+    answerStartedAtRef.current = null;
+    answerHistoryRef.current = [];
     setAnswerMode("text");
-    setInitialAnswerMode("text");
     setFillerCount(0);
     setDetectedFillers([]);
     setDrillDownActive(false);
     setDrillDownQuestion("");
-    setInitialDuration(0);
+    setSpeechError(null);
   }, [activeClaim, resumeData, selectedRole, experienceLevel, selectedPersonaId, activePersona, plan, planProgress]);
 
   useEffect(() => {
     if (!selectedPersonaId || !activePersona || !isInterviewerVoiceOn || !displayedQuestion || lastSpokenRevisionRef.current === questionRevision) return;
-    lastSpokenRevisionRef.current = questionRevision;
-    speechService.speakQuestion(displayedQuestion, activePersona.voiceSettings);
+    const spoken = speechService.speakQuestion(displayedQuestion, activePersona.voiceSettings, (error) => {
+      lastSpokenRevisionRef.current = null;
+      setSpeechError(error.message);
+    });
+    if (spoken) {
+      lastSpokenRevisionRef.current = questionRevision;
+      setSpeechError(null);
+    } else {
+      setSpeechError("Interviewer speech is unavailable in this browser. You can continue with the question on screen.");
+    }
   }, [selectedPersonaId, displayedQuestion, questionRevision, isInterviewerVoiceOn, activePersona]);
 
   useEffect(() => () => {
@@ -135,7 +176,9 @@ export const ProbeView = ({
   useEffect(() => {
     if (isListening) {
       timerRef.current = setInterval(() => {
-        setDuration(prev => prev + 1);
+        if (answerStartedAtRef.current !== null) {
+          setDuration(Math.floor((Date.now() - answerStartedAtRef.current) / 1000));
+        }
       }, 1000);
     } else {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -162,6 +205,8 @@ export const ProbeView = ({
     setMicError(null);
     setIsFinalizingTranscript(false);
     setAnswerMode("voice");
+    setDuration(0);
+    answerStartedAtRef.current = Date.now();
     const started = speechService.startListening({
       onTranscript: ({ combined }) => {
         setTranscript(combined);
@@ -170,9 +215,9 @@ export const ProbeView = ({
       onError: (err) => {
         console.warn("Mic error:", err.message);
         setMicError(err.message);
+        finishRecording();
         setIsListening(false);
         setIsFinalizingTranscript(false);
-        setAnswerMode("text");
         setUseTextInput(true); // graceful fallback to text
       },
       onEnd: ({ combined } = {}) => {
@@ -180,6 +225,7 @@ export const ProbeView = ({
           setTranscript(combined);
           setAnswerMode("voice");
         }
+        finishRecording();
         setIsListening(false);
         setIsFinalizingTranscript(false);
       }
@@ -187,12 +233,15 @@ export const ProbeView = ({
 
     if (started) {
       setIsListening(true);
+    } else {
+      answerStartedAtRef.current = null;
     }
   };
 
   // Stop Voice Answer
   const handleStopListening = () => {
     setIsFinalizingTranscript(true);
+    finishRecording();
     speechService.stopListening({ preserveFinal: true });
     setIsListening(false);
   };
@@ -203,6 +252,7 @@ export const ProbeView = ({
     setIsFinalizingTranscript(false);
     setTranscript("");
     setDuration(0);
+    answerStartedAtRef.current = null;
     setAnswerMode("text");
     setFillerCount(0);
     setDetectedFillers([]);
@@ -216,13 +266,12 @@ export const ProbeView = ({
     setIsFinalizingTranscript(false);
     setTranscript("");
     setDuration(0);
+    answerStartedAtRef.current = null;
     setAnswerMode("text");
-    setInitialAnswerMode("text");
     setFillerCount(0);
     setDetectedFillers([]);
     setDrillDownActive(false);
     setDrillDownQuestion("");
-    setInitialDuration(0);
     setMicError(null);
   };
 
@@ -246,79 +295,115 @@ export const ProbeView = ({
     publishQuestion(generated.question);
   };
 
-  // Submit Answer & Handle Adaptive Drill-Down
+  const resetAnswerForNextQuestion = () => {
+    setTranscript("");
+    setDuration(0);
+    answerStartedAtRef.current = null;
+    setAnswerMode("text");
+    setFillerCount(0);
+    setDetectedFillers([]);
+    setMicError(null);
+  };
+
+  const finishInterview = (lastAttempt) => {
+    const answers = answerHistoryRef.current;
+    const voiceAnswers = answers.filter(item => item.answerMode === "voice");
+    const voiceDuration = voiceAnswers.reduce((total, item) => total + item.durationSeconds, 0);
+    const voiceAnalysis = voiceAnswers.length
+      ? { ...speechService.analyzeAnswerSignals(voiceAnswers.map(item => item.answer).join(" "), voiceDuration), durationSeconds: voiceDuration }
+      : null;
+    const scoreNames = ["technicalDepth", "communication", "answerStructure", "overallReadiness"];
+    const scores = Object.fromEntries(scoreNames.map(scoreName => {
+      const values = answers.map(item => item.feedback?.scores?.[scoreName]).filter(Number.isFinite);
+      return [scoreName, values.length ? Math.round(values.reduce((total, value) => total + value, 0) / values.length) : undefined];
+    }));
+    const allFeedback = answers.map(item => item.feedback).filter(Boolean);
+    const mergeFeedbackItems = key => [...new Set(allFeedback.flatMap(item => item[key] || []))];
+    const summaryFeedback = {
+      ...lastAttempt.feedback,
+      scores,
+      signals: {
+        ...lastAttempt.feedback.signals,
+        answerDurationSeconds: voiceAnswers.length ? voiceDuration : null,
+        ...(voiceAnalysis ? {
+          wordsPerMinute: voiceAnalysis.wordsPerMinute,
+          fillerCount: voiceAnalysis.fillerCount,
+          fillerPercentage: voiceAnalysis.fillerPercentage,
+          detectedFillers: voiceAnalysis.detectedFillers,
+          pacingAssessment: voiceAnalysis.pacingAssessment
+        } : {
+          wordsPerMinute: undefined,
+          fillerCount: undefined,
+          fillerPercentage: undefined,
+          detectedFillers: undefined,
+          pacingAssessment: undefined
+        })
+      },
+      whatYouDidWell: mergeFeedbackItems("whatYouDidWell"),
+      whatYouShouldWorkOn: mergeFeedbackItems("whatYouShouldWorkOn")
+    };
+    const combinedAnswer = answers.map(item => `${item.question}\n${item.answer}`).join("\n\n");
+
+    onFinishInterview(summaryFeedback, activeClaim, answers[0]?.question || activeQuestion, combinedAnswer, activePersona, {
+      answerMode: lastAttempt.answerMode,
+      durationSeconds: voiceDuration,
+      voiceDurationSeconds: voiceDuration,
+      voiceAnalysis,
+      answers
+    });
+  };
+
+  // Submit the current answer, then show a follow-up or advance to the next main question.
   const handleSubmitAnswer = async () => {
-    if (!transcript.trim()) {
+    const submittedAnswer = transcript.trim();
+    if (!submittedAnswer) {
       setMicError("Please provide an answer before submitting (either via microphone or by typing below).");
       return;
     }
 
-    handleStopListening();
-
-    // Check if adaptive drill-down should be triggered (first round only)
-    if (!drillDownActive) {
-      const evaluation = aiService.evaluateAnswerCompleteness(transcript, activeClaim);
-      const answerSignals = speechService.analyzeAnswerSignals(transcript, duration);
-      const answerIsStrong = answerSignals.wordCount >= 35 &&
-        answerSignals.hasContext && answerSignals.hasAction && answerSignals.hasResult;
-      if (evaluation.needsDrillDown || answerIsStrong) {
-        setDrillDownActive(true);
-        setDrillDownBanner(evaluation.needsDrillDown
-          ? evaluation.bannerMessage
-          : "Your answer included context, an action, and a result. The interviewer is probing the reasoning behind your decision.");
-        publishFollowUp(generateContextualFollowUp({
-          previousQuestion: activeQuestion,
-          answer: transcript,
-          claim: activeClaim,
-          resumeData,
-          selectedRole,
-          experienceLevel,
-          persona: activePersona
-        }));
-        setInitialAnswer(transcript);
-        setInitialDuration(duration);
-        setInitialAnswerMode(answerMode);
-        setTranscript(""); // clear for follow-up answer
-        setDuration(0);
-        setAnswerMode("text");
-        return;
-      }
+    let submittedDuration = duration;
+    if (answerStartedAtRef.current !== null) {
+      submittedDuration = Math.max(0, Math.round((Date.now() - answerStartedAtRef.current) / 1000));
+      setDuration(submittedDuration);
+      answerStartedAtRef.current = null;
     }
-
-    // Proceed to full feedback analysis
+    const submittedMode = answerMode;
+    const submittedQuestion = displayedQuestion;
+    const isFollowUp = drillDownActive;
+    speechService.stopListening();
+    setIsListening(false);
+    setIsFinalizingTranscript(false);
+    setMicError(null);
     setIsAnalyzing(true);
 
-    const fullCombinedAnswer = drillDownActive 
-      ? `Initial response: ${initialAnswer}. Follow-up response: ${transcript}`
-      : transcript;
-    const totalDuration = drillDownActive ? initialDuration + duration : duration;
-    const finalAnswerMode = drillDownActive ? initialAnswerMode : answerMode;
-    const voiceSegments = [
-      ...(finalAnswerMode === "voice" && drillDownActive ? [{ text: initialAnswer, seconds: initialDuration }] : []),
-      ...(finalAnswerMode === "voice" && answerMode === "voice" ? [{ text: transcript, seconds: duration }] : [])
-    ];
-    const voiceDuration = voiceSegments.reduce((total, segment) => total + segment.seconds, 0);
-    const voiceTranscript = voiceSegments.map(segment => segment.text).join(" ");
-    const voiceAnalysis = finalAnswerMode === "voice"
-      ? { ...speechService.analyzeAnswerSignals(voiceTranscript, voiceDuration), durationSeconds: voiceDuration }
-      : null;
+    const answerSignals = speechService.analyzeAnswerSignals(
+      submittedAnswer,
+      submittedMode === "voice" ? submittedDuration : 0
+    );
+    const completeness = isFollowUp ? null : aiService.evaluateAnswerCompleteness(submittedAnswer, activeClaim);
+    const answerIsStrong = answerSignals?.wordCount >= 35 &&
+      answerSignals.hasContext && answerSignals.hasAction && answerSignals.hasResult;
 
     try {
       const feedback = await aiService.generateFeedback({
         claim: activeClaim,
-        question: drillDownActive ? `${activeQuestion} [Follow-up: ${drillDownQuestion}]` : activeQuestion,
-        answer: fullCombinedAnswer,
+        question: submittedQuestion,
+        questionIndex,
+        answer: submittedAnswer,
         persona: activePersona,
-        durationSeconds: totalDuration,
+        durationSeconds: submittedMode === "voice" ? submittedDuration : 0,
+        answerMode: submittedMode,
         apiKey: userSettings?.geminiApiKey
       });
-      
-      setIsAnalyzing(false);
-      const feedbackWithDuration = {
+
+      const voiceAnalysis = submittedMode === "voice"
+        ? { ...answerSignals, durationSeconds: submittedDuration }
+        : null;
+      const answerFeedback = {
         ...feedback,
         signals: {
           ...feedback?.signals,
-          answerDurationSeconds: totalDuration || null,
+          answerDurationSeconds: submittedMode === "voice" ? submittedDuration : null,
           ...(voiceAnalysis ? {
             wordsPerMinute: voiceAnalysis.wordsPerMinute,
             fillerCount: voiceAnalysis.fillerCount,
@@ -326,7 +411,7 @@ export const ProbeView = ({
             detectedFillers: voiceAnalysis.detectedFillers,
             pacingAssessment: voiceAnalysis.pacingAssessment
           } : {}),
-          ...(finalAnswerMode === "text" ? {
+          ...(submittedMode === "text" ? {
             wordsPerMinute: undefined,
             fillerCount: undefined,
             fillerPercentage: undefined,
@@ -334,16 +419,93 @@ export const ProbeView = ({
             pacingAssessment: undefined
           } : {})
         },
-        ...(finalAnswerMode === "text" ? {
+        ...(submittedMode === "text" ? {
           whatYouShouldWorkOn: (feedback?.whatYouShouldWorkOn || []).filter(item => !/filler|pacing|speaking rate/i.test(item))
         } : {})
       };
-      onFinishInterview(feedbackWithDuration, activeClaim, activeQuestion, fullCombinedAnswer, activePersona, {
-        answerMode: finalAnswerMode,
-        durationSeconds: totalDuration,
-        voiceDurationSeconds: voiceDuration,
-        voiceAnalysis
+
+      const scorePercent = Number.isFinite(answerFeedback.answerEvaluation?.scorePercent)
+        ? answerFeedback.answerEvaluation.scorePercent
+        : Number.isFinite(answerFeedback.scores?.overallReadiness)
+          ? answerFeedback.scores.overallReadiness
+          : null;
+      const scoreBand = scorePercent === null ? null : getQuestionScoreBand(scorePercent);
+      const answerAttempt = {
+        question: submittedQuestion,
+        questionIndex,
+        answer: submittedAnswer,
+        answerMode: submittedMode,
+        durationSeconds: submittedMode === "voice" ? submittedDuration : null,
+        score: scorePercent,
+        ...(scoreBand || {}),
+        evaluation: {
+          ...(completeness || {}),
+          status: scoreBand?.status || "Evaluation unavailable",
+          scorePercent,
+          scoreOutOf10: scoreBand?.scoreOutOf10 ?? null,
+          summary: answerFeedback.answerEvaluation?.summary || "",
+          source: answerFeedback.answerEvaluation?.source || "offline-heuristic",
+          dimensions: answerFeedback.answerEvaluation?.dimensions || null,
+          scores: answerFeedback.scores || {},
+          strengths: answerFeedback.whatYouDidWell || [],
+          improvements: answerFeedback.whatYouShouldWorkOn || []
+        },
+        feedback: answerFeedback,
+        betterAnswer: scorePercent !== null && scorePercent < 90
+          ? (answerFeedback.answerEvaluation?.betterAnswer || answerFeedback.modelAnswer || "")
+          : null,
+        claim: activeClaim,
+        claimText: activeClaim?.claim || "",
+        persona: { id: activePersona?.id || null, name: activePersona?.name || "" },
+        role: selectedRole,
+        experienceLevel,
+        voiceAnalysis,
+        isFollowUp
+      };
+      answerHistoryRef.current = [...answerHistoryRef.current, answerAttempt];
+      setIsAnalyzing(false);
+
+      if (!isFollowUp && (completeness.needsDrillDown || answerIsStrong)) {
+        setDrillDownActive(true);
+        setDrillDownBanner(completeness.needsDrillDown
+          ? completeness.bannerMessage
+          : "Your answer included context, an action, and a result. The interviewer is probing the reasoning behind your decision.");
+        resetAnswerForNextQuestion();
+        publishFollowUp(generateContextualFollowUp({
+          previousQuestion: submittedQuestion,
+          answer: submittedAnswer,
+          claim: activeClaim,
+          resumeData,
+          selectedRole,
+          experienceLevel,
+          persona: activePersona
+        }));
+        return;
+      }
+
+      if (questionIndex >= 3) {
+        finishInterview(answerAttempt);
+        return;
+      }
+
+      const nextQuestionIndex = questionIndex + 1;
+      const generated = aiService.generateInterviewQuestion({
+        resumeData,
+        selectedRole,
+        experienceLevel,
+        activeClaim,
+        persona: activePersona,
+        previousQuestion: submittedQuestion,
+        previousAnswer: submittedAnswer,
+        plan,
+        planProgress,
+        questionIndex: nextQuestionIndex
       });
+      setQuestionIndex(nextQuestionIndex);
+      setDrillDownActive(false);
+      setDrillDownQuestion("");
+      resetAnswerForNextQuestion();
+      publishQuestion(generated.question);
     } catch (e) {
       console.error("Feedback error:", e);
       setIsAnalyzing(false);
@@ -369,7 +531,6 @@ export const ProbeView = ({
             Simulated live technical screening. Answer out loud or type below. Watch for adaptive follow-ups.
           </p>
         </div>
-
         {/* Claim Selector Dropdown */}
         {allClaims && allClaims.length > 0 && (
           <div className="flex items-center gap-2">
@@ -542,6 +703,7 @@ export const ProbeView = ({
             aria-checked={isInterviewerVoiceOn}
             onClick={() => setIsInterviewerVoiceOn(enabled => {
               if (enabled) speechService.stopSpeaking();
+              else lastSpokenRevisionRef.current = null;
               return !enabled;
             })}
             className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${isInterviewerVoiceOn ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-white text-slate-600"}`}
@@ -564,6 +726,12 @@ export const ProbeView = ({
             "{displayedQuestion}"
           </p>
         </div>
+        {speechError && isInterviewerVoiceOn && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>{speechError}</span>
+          </div>
+        )}
 
         {/* Live Audio Visualizer */}
         {!useTextInput && (
@@ -708,7 +876,7 @@ export const ProbeView = ({
               </>
             ) : (
               <>
-                <span>{drillDownActive ? "Submit Final Answer" : "Submit Answer"}</span>
+                <span>{drillDownActive ? "Submit Follow-Up Answer" : "Submit Answer"}</span>
                 <Send className="h-3.5 w-3.5" />
               </>
             )}

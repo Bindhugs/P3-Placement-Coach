@@ -53,7 +53,7 @@ class SpeechService {
             interimTranscript += event.results[i][0].transcript;
           }
         }
-        latestCombinedTranscript = (finalTranscript + " " + interimTranscript).trim();
+        latestCombinedTranscript = `${finalTranscript.trim()} ${interimTranscript.trim()}`.trim();
         if (onTranscript) {
           onTranscript({
             final: finalTranscript.trim(),
@@ -113,24 +113,35 @@ class SpeechService {
   }
 
   // Text-To-Speech for Interviewer Persona
-  speakQuestion(text, personaVoiceSettings = {}) {
-    if (!this.isSpeechSynthesisSupported() || !text) return;
+  speakQuestion(text, personaVoiceSettings = {}, onError) {
+    if (!this.isSpeechSynthesisSupported() || !text) return false;
 
-    window.speechSynthesis.cancel(); // Stop any pending speech
+    try {
+      const Utterance = window.SpeechSynthesisUtterance || globalThis.SpeechSynthesisUtterance;
+      if (!Utterance) return false;
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.pitch = personaVoiceSettings.pitch || 1.0;
-    utterance.rate = personaVoiceSettings.rate || 1.0;
-    utterance.lang = "en-US";
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.resume?.();
 
-    // Attempt to pick a natural voice if available
-    const voices = window.speechSynthesis.getVoices();
-    if (voices && voices.length > 0) {
-      const preferred = voices.find(v => v.lang.startsWith("en") && (v.name.includes("Google") || v.name.includes("Natural") || v.name.includes("English")));
-      if (preferred) utterance.voice = preferred;
+      const utterance = new Utterance(text);
+      utterance.pitch = personaVoiceSettings.pitch || 1.0;
+      utterance.rate = personaVoiceSettings.rate || 1.0;
+      utterance.lang = "en-US";
+      utterance.onerror = event => onError?.(new Error(`Interviewer speech failed: ${event.error || "unknown error"}`));
+
+      const voices = window.speechSynthesis.getVoices();
+      if (voices && voices.length > 0) {
+        const preferred = voices.find(v => v.lang.startsWith("en") && (v.name.includes("Google") || v.name.includes("Natural") || v.name.includes("English")));
+        if (preferred) utterance.voice = preferred;
+      }
+
+      window.speechSynthesis.speak(utterance);
+      return true;
+    } catch (error) {
+      console.warn("P3 interviewer speech failed:", error);
+      onError?.(error);
+      return false;
     }
-
-    window.speechSynthesis.speak(utterance);
   }
 
   stopSpeaking() {
