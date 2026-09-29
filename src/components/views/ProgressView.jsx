@@ -440,24 +440,14 @@ export const ProgressView = ({
       </>}
 
       {/* Bottom Action Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-200 pt-6">
+      <div className="flex justify-end border-t border-slate-200 pt-6">
         <button
-          onClick={onRetry}
-          className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-700 hover:border-cyan-500 hover:text-slate-900 transition-all w-full sm:w-auto"
+          onClick={onGoToPlan}
+          className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-cyan-500/25 hover:from-cyan-400 hover:to-blue-500 transition-all w-full sm:w-auto"
         >
-          <RotateCcw className="h-3.5 w-3.5 text-cyan-700" />
-          <span>Retry This Question</span>
+          <CalendarDays className="h-4 w-4" />
+          <span>Go to 7-Day Plan</span>
         </button>
-
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <button
-            onClick={onNextClaim}
-            className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-cyan-500/25 hover:from-cyan-400 hover:to-blue-500 transition-all w-full sm:w-auto"
-          >
-            <span>Next Risky Claim</span>
-            <ArrowRight className="h-4 w-4" />
-          </button>
-        </div>
       </div>
         </>
       ) : (

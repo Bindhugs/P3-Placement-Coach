@@ -116,8 +116,15 @@ const getQuestionContext = (claim, resumeData) => {
   const certification = cleanList(evidence.raw.certifications).find(item =>
     matchingSkills.some(skill => item.toLowerCase().includes(skill.toLowerCase()))
   );
+  const feature = claimText
+    .replace(/^\s*(?:(?:i|we)\s+)?(?:developed|built|implemented|created|designed|configured|integrated|improved|added|used|deployed|tested)\s+/i, "")
+    .replace(/[.!?]+$/, "")
+    .trim();
+  const questionSubject = feature && project?.title && !feature.toLowerCase().includes(project.title.toLowerCase())
+    ? `${feature} in your ${project.title}`
+    : feature || project?.title || contextTitle;
 
-  return { ...evidence, claimText, contextTitle, matchingSkills, certification };
+  return { ...evidence, claimText, contextTitle, matchingSkills, certification, questionSubject };
 };
 
 const getQuestionRoleContext = (selectedRole, experienceLevel) => {
@@ -147,62 +154,62 @@ export const generatePrimaryInterviewQuestion = ({ claim, resumeData, persona, q
 
   if (personaId === "empathetic-coach" || /empathetic coach/i.test(persona?.name || "")) {
     const questions = [
-      "What part of the project did you personally work on?",
-      "What decision did you make while building it?",
-      "What challenge came up, and how did you handle it?",
-      "What result can you point to from your work?"
+      `What part of building ${context.questionSubject} did you personally work on?`,
+      `What decision did you make while building ${context.questionSubject}?`,
+      `What challenge came up while working on ${context.questionSubject}, and how did you handle it?`,
+      `What result can you point to from ${context.questionSubject}?`
     ];
     return questions[variant];
   }
 
   if (personaId === "hr-lead" || /recruiter|human resources/i.test(persona?.name || "")) {
     const questions = [
-      "Which part of the project was your responsibility?",
-      "How did you communicate your work or decisions to the team?",
-      "What was the most difficult part, and what did you learn?",
-      "How would you explain your contribution to a teammate?"
+      `Which part of building ${context.questionSubject} was your responsibility?`,
+      `How did you communicate your work on ${context.questionSubject} to the team?`,
+      `What was the most difficult part of ${context.questionSubject}, and what did you learn?`,
+      `How would you explain your work on ${context.questionSubject} to a teammate?`
     ];
     return questions[variant];
   }
 
   if (personaId === "founder") {
     const questions = [
-      "What user need did your work address, and how did you know it helped?",
-      "What was your most important implementation decision, and what trade-off did it create?",
-      "What did you deliver, and what would you improve first?",
-      "How did you verify the result?"
+      `What user need did ${context.questionSubject} address, and how did you know it helped?`,
+      `What implementation decision did you make for ${context.questionSubject}, and what trade-off did it create?`,
+      `What did you deliver for ${context.questionSubject}, and what would you improve first?`,
+      `How did you verify the result of ${context.questionSubject}?`
     ];
     return questions[variant];
   }
 
   if (personaId === "senior-developer" || /senior developer/i.test(persona?.name || "")) {
     const questions = [
-      "How did you implement it, and what kept the code maintainable?",
-      "What tests did you use, and which edge case mattered most?",
-      "Which implementation choice would you revisit, and why?",
-      "How did you separate the code into testable parts?"
+      `How did you implement ${context.questionSubject}, and what kept the code maintainable?`,
+      `What tests did you use for ${context.questionSubject}, and which edge case mattered most?`,
+      `Which implementation choice for ${context.questionSubject} would you revisit, and why?`,
+      `How did you separate ${context.questionSubject} into testable parts?`
     ];
     return questions[variant];
   }
 
   if (skillReference) {
     if (context.certification) {
-      return `How did your ${context.certification} knowledge shape your use of ${skillReference}?`;
+      return `How did your ${context.certification} knowledge shape your use of ${skillReference} for ${context.questionSubject}?`;
     }
     const questions = [
-      `How did you use ${skillReference}, and how did you verify it worked?`,
-      `Why did you choose ${skillReference}, and what alternative did you consider?`,
-      `How did you test the ${skillReference} integration, including an edge case?`,
-      `What limitation or trade-off did you encounter with ${skillReference}?`
+      `How did you use ${skillReference} for ${context.questionSubject}, and how did you verify the result?`,
+      `Why did you choose ${skillReference} for ${context.questionSubject}, and what alternative did you consider?`,
+      `How did you test the ${skillReference} part of ${context.questionSubject}, including an edge case?`,
+      `What limitation or trade-off did you encounter using ${skillReference} for ${context.questionSubject}?`
     ];
     return questions[variant];
   }
 
   const questions = [
-    "What design decision did you make, and why?",
-    "How did you implement and test your solution, including an edge case?",
-    "What was most difficult to debug, and how did you find the cause?",
-    "What trade-off did you make, and how would you evaluate another approach?"
+    `What design decision did you make for ${context.questionSubject}, and why?`,
+    `How did you implement and test ${context.questionSubject}, including an edge case?`,
+    `What was most difficult to debug in ${context.questionSubject}, and how did you find the cause?`,
+    `What trade-off did you make for ${context.questionSubject}, and how would you evaluate another approach?`
   ];
   return questions[variant];
 };
@@ -246,6 +253,7 @@ export const generateClaimRiskQuestions = ({ claim, resumeData, selectedRole, ex
 };
 
 export const generateContextualFollowUp = ({ previousQuestion, answer, claim, resumeData, persona }) => {
+  const context = getQuestionContext(claim, resumeData);
   const answerText = (answer || "").trim();
   const answerSignals = speechService.analyzeAnswerSignals(answerText, 30);
   const questionText = (previousQuestion || "").toLowerCase();
@@ -260,33 +268,33 @@ export const generateContextualFollowUp = ({ previousQuestion, answer, claim, re
   const unsupportedMetric = (answerText.match(/\b\d+(?:\.\d+)?\s?(?:%|x)(?![a-z])|\b\d+(?:\.\d+)?\s+(?:users?|customers?|requests?|records?|ms|seconds?|hours?)\b/gi) || [])
     .find(metric => !resumeText.includes(metric.toLowerCase()));
   if (unsupportedTechnology) {
-    return `What part of your work involved ${unsupportedTechnology}?`;
+    return `What role did ${unsupportedTechnology} play in ${context.questionSubject}?`;
   }
   if (unsupportedMetric) {
-    return `How did you measure ${unsupportedMetric}?`;
+    return `How did you measure ${unsupportedMetric} for ${context.questionSubject}?`;
   }
 
   if (/responsiv|screen size|different device/i.test(questionText) && /screen size|different device/i.test(answerLower) && !/layout|breakpoint|media quer|flex|grid/i.test(answerLower)) {
-    return "What layout changes did you make for different screen sizes?";
+    return `What layout changes did you make to ${context.questionSubject} for different screen sizes?`;
   }
 
   if (!answerAddressesQuestion(previousQuestion, answerText)) {
     return persona?.id === "empathetic-coach"
-      ? "Could you connect that to one specific step you took?"
-      : "Which specific part of your work answers that question?";
+      ? `Could you connect your answer about ${context.questionSubject} to one specific step you took?`
+      : `Which specific part of ${context.questionSubject} answers that question?`;
   }
 
   if (!answerSignals.hasAction) {
     return persona?.id === "empathetic-coach"
-      ? "What is one specific step you took?"
-      : "What specific step did you take?";
+      ? `What is one specific step you took with ${context.questionSubject}?`
+      : `What specific step did you take with ${context.questionSubject}?`;
   }
 
   if (!answerSignals.hasResult) {
-    return "What result did you observe, and how did you verify it?";
+    return `What result did you observe from ${context.questionSubject}, and how did you verify it?`;
   }
 
-  return "What trade-off or edge case most influenced that decision?";
+  return `What trade-off or edge case most influenced your decision about ${context.questionSubject}?`;
 };
 
 const makePlanDay = (day, topic, resumeEvidence, claim, feedback, selectedRole, experienceLevel) => {

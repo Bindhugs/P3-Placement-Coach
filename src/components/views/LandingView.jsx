@@ -219,41 +219,6 @@ export const LandingView = ({ onStartPrep, onTriggerDemo, onViewHowItWorks }) =>
       </section>
 
       {/* Recruiter Personas Teaser */}
-      <section className="mx-auto max-w-5xl px-4 sm:px-6 text-center">
-        <h2 className="text-2xl font-bold text-slate-900 mb-2">Practice Against Realistic Interviewer Personas</h2>
-        <p className="text-xs text-slate-600 max-w-lg mx-auto mb-8">
-          Different interviewers listen for different signals. P3 lets you tailor your prep to whoever is sitting across the table.
-        </p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-left">
-          <div className="rounded-xl border border-cyan-200 bg-cyan-50 p-5">
-            <span className="text-2xl">👨‍💻</span>
-            <h4 className="font-bold text-sm text-slate-900 mt-2">Skeptical Tech Lead</h4>
-            <p className="text-[11px] text-cyan-700 font-mono mt-0.5">Focus: Architecture & Failures</p>
-            <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-              Drills into concurrency, database transactions, index traversals, and trade-offs.
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5">
-            <span className="text-2xl">👩‍💼</span>
-            <h4 className="font-bold text-sm text-slate-900 mt-2">Empathetic HR Lead</h4>
-            <p className="text-[11px] text-emerald-700 font-mono mt-0.5">Focus: Communication & STAR</p>
-            <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-              Evaluates structured reasoning, filler words, collaboration, and learning agility.
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
-            <span className="text-2xl">⚡</span>
-            <h4 className="font-bold text-sm text-slate-900 mt-2">Fast-Paced Founder</h4>
-            <p className="text-[11px] text-amber-700 font-mono mt-0.5">Focus: ROI & Conciseness</p>
-            <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-              Demands 30-second crisp explanations, business impact, and pragmatic trade-offs.
-            </p>
-          </div>
-        </div>
-      </section>
 
     </div>
   );

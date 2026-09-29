@@ -88,33 +88,36 @@ class AIService {
 
     if (planContext.hasCompletedPlan) {
       const topic = planContext.completedTopics[questionIndex % planContext.completedTopics.length];
-      const projectName = activeClaim?.sourceProject || resumeData?.raw?.projects?.[0]?.title || "your project";
+      const projectName = resumeData?.raw?.projects?.find(project => project?.title)?.title
+        || activeClaim?.sourceProject?.split("|")[0].replace(/^[^—–]+[—–]\s*/, "").trim()
+        || "";
+      const topicSubject = projectName ? `${topic.topic} in your ${projectName}` : topic.topic;
       const personaId = persona?.id || "tech-lead";
       const templates = {
         "tech-lead": [
-          `How did you apply ${topic.topic}, and what trade-off did you consider?`,
-          `What decision did you make about ${topic.topic}, and how did you validate it?`,
-          `What edge case did you plan for while working on ${topic.topic}?`
+          `How did you apply ${topicSubject}, and what trade-off did you consider?`,
+          `What decision did you make about ${topicSubject}, and how did you validate it?`,
+          `What edge case did you plan for while working on ${topicSubject}?`
         ],
         "senior-developer": [
-          `How did you implement ${topic.topic}, and what kept it testable?`,
-          `What decision would you change if you rebuilt this work?`,
-          `How did you verify ${topic.topic}, and which edge case mattered most?`
+          `How did you implement ${topicSubject}, and what kept it testable?`,
+          `What decision about ${topicSubject} would you change if you rebuilt it?`,
+          `How did you verify ${topicSubject}, and which edge case mattered most?`
         ],
         "hr-lead": [
-          `What was your responsibility, and how did you communicate your work?`,
-          `What part did you own, and what did you learn from the outcome?`,
-          `How would you explain your contribution to a hiring manager?`
+          `What was your responsibility for ${topicSubject}, and how did you communicate your work?`,
+          `What part of ${topicSubject} did you own, and what did you learn from the outcome?`,
+          `How would you explain your contribution to ${topicSubject} to a hiring manager?`
         ],
         "empathetic-coach": [
-          `What problem were you solving, what did you do, and what changed?`,
-          `What part did you handle, and what decision did you make?`,
-          `What example best shows your contribution?`
+          `What problem were you solving with ${topicSubject}, what did you do, and what changed?`,
+          `What part of ${topicSubject} did you handle, and what decision did you make?`,
+          `What example best shows your contribution to ${topicSubject}?`
         ],
         "founder": [
-          `What value did ${topic.topic} create, and what evidence showed it worked?`,
-          `What was your most important decision, and what trade-off did it force?`,
-          `What would you improve first with one more sprint?`
+          `What value did ${topicSubject} create, and what evidence showed it worked?`,
+          `What was your most important decision about ${topicSubject}, and what trade-off did it force?`,
+          `What would you improve first about ${topicSubject} with one more sprint?`
         ]
       };
 

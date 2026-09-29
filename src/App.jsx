@@ -91,34 +91,8 @@ export default function App() {
 
   // 1-Click Demo Trigger: Loads sample resume, selects payment claim, sets persona, goes to Parse or Probe
   const handleTriggerDemo = () => {
-    const sample = resumeParser.getSampleResume();
-    setResumeData(sample);
-    setUploadedResumeFile(null);
-    setLastFeedback(null);
-    setLastQuestion("");
-    setLastAnswer("");
-    setPersonalizedPlan(null);
-    setPlanProgress({});
-    storage.savePlanProgress({});
-    setIsSampleResumeLoaded(true);
-    const demoStats = {
-      ...stats,
-      resumeAnalysisComplete: true,
-      readinessScore: null,
-      sessionsCompleted: 0,
-      claimsAnalyzed: sample.claims.length,
-      highRiskCount: sample.stats.highRisk,
-      mediumRiskCount: sample.stats.mediumRisk,
-      lowRiskCount: sample.stats.lowRisk
-    };
-    setStats(demoStats);
-    storage.saveStats(demoStats);
-    storage.clearRecentSessions();
-    setRecentSessions([]);
-    const demoClaim = sample.claims[0]; // "Developed scalable e-commerce backend handling payments using Stripe webhooks"
-    setActiveClaim(demoClaim);
-    setActiveView("parse");
-  };
+  setActiveView("parse");
+};
 
   // Start Prep Flow
     const handleStartPrep = () => {
