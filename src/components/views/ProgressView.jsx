@@ -21,6 +21,8 @@ export const ProgressView = ({
   questionAsked, 
   candidateAnswer, 
   persona, 
+  answerMode = "text",
+  recentSessions = [],
   onRetry, 
   onGoToPlan, 
   onNextClaim 
@@ -59,6 +61,18 @@ export const ProgressView = ({
       : signals.wordsPerMinute > 165
         ? "Above reference pace"
         : "Within reference pace";
+    const sessions = Array.isArray(recentSessions) ? recentSessions : [];
+    const voiceSessions = sessions.filter(session => session?.answerMode === "voice");
+    const textSessions = sessions.filter(session => session?.answerMode === "text");
+    const voiceFillerCount = voiceSessions.reduce((total, session) => total + (session.voiceAnalysis?.fillerCount || 0), 0);
+    const voiceDuration = voiceSessions.reduce((total, session) => total + (session.voiceAnalysis?.durationSeconds || session.duration || 0), 0);
+    const getSessionScore = session => session.score ?? session.feedback?.scores?.overallReadiness;
+    const getScoreTrend = items => {
+      const scoredItems = items.map(getSessionScore).filter(Number.isFinite);
+      return scoredItems.length > 1 ? scoredItems[0] - scoredItems[scoredItems.length - 1] : null;
+    };
+    const voiceTrend = getScoreTrend(voiceSessions);
+    const textTrend = getScoreTrend(textSessions);
 
   return (
     <div className="space-y-8 pb-16">
@@ -98,6 +112,54 @@ export const ProgressView = ({
         </div>
       </div>
 
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <section className="rounded-2xl border border-cyan-200 bg-white p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-cyan-800">Voice Answers</h2>
+            <span className="text-xs text-slate-600">{voiceSessions.length} attempts</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
+            <div><span className="block text-slate-500">Filler words</span><strong className="text-slate-900">{voiceFillerCount}</strong></div>
+            <div><span className="block text-slate-500">Voice duration</span><strong className="text-slate-900">{Math.floor(voiceDuration / 60)}m {voiceDuration % 60}s</strong></div>
+            <div><span className="block text-slate-500">Score trend</span><strong className="text-slate-900">{voiceTrend === null ? "Not enough data" : `${voiceTrend > 0 ? "+" : ""}${voiceTrend} pts`}</strong></div>
+            <div><span className="block text-slate-500">Pacing</span><strong className="text-slate-900">{voiceSessions.length ? `${Math.round(voiceSessions.reduce((total, session) => total + (session.voiceAnalysis?.wordsPerMinute || 0), 0) / voiceSessions.length)} WPM avg` : "No voice data"}</strong></div>
+          </div>
+          {voiceSessions.length ? (
+            <div className="space-y-2">
+              {voiceSessions.slice(0, 3).map((session, index) => (
+                <article key={session.timestamp || index} className="rounded-lg border border-slate-200 p-3 text-xs">
+                  <p className="font-semibold text-slate-900">{session.question || session.claimText || "Voice interview"}</p>
+                  <p className="mt-1 text-slate-600">{session.voiceAnalysis?.fillerCount ?? 0} fillers ({session.voiceAnalysis?.fillerPercentage ?? 0}%) · {session.voiceAnalysis?.wordsPerMinute ?? 0} WPM · score {getSessionScore(session) ?? "N/A"}</p>
+                  {session.feedback?.whatYouShouldWorkOn?.[0] && <p className="mt-1 text-slate-600">Focus: {session.feedback.whatYouShouldWorkOn[0]}</p>}
+                </article>
+              ))}
+            </div>
+          ) : <p className="text-xs text-slate-600">No voice interview attempts recorded yet.</p>}
+        </section>
+
+        <section className="rounded-2xl border border-emerald-200 bg-white p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-emerald-800">Text Answers</h2>
+            <span className="text-xs text-slate-600">{textSessions.length} attempts</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            <div><span className="block text-slate-500">Average answer score</span><strong className="text-slate-900">{textSessions.length ? `${Math.round(textSessions.reduce((total, session) => total + (getSessionScore(session) || 0), 0) / textSessions.length)}%` : "No text data"}</strong></div>
+            <div><span className="block text-slate-500">Score trend</span><strong className="text-slate-900">{textTrend === null ? "Not enough data" : `${textTrend > 0 ? "+" : ""}${textTrend} pts`}</strong></div>
+          </div>
+          {textSessions.length ? (
+            <div className="space-y-2">
+              {textSessions.slice(0, 3).map((session, index) => (
+                <article key={session.timestamp || index} className="rounded-lg border border-slate-200 p-3 text-xs">
+                  <p className="font-semibold text-slate-900">{session.question || session.claimText || "Text interview"}</p>
+                  <p className="mt-1 text-slate-600">{session.claimText || "Resume claim"} · score {getSessionScore(session) ?? "N/A"}</p>
+                  {session.feedback?.whatYouShouldWorkOn?.[0] && <p className="mt-1 text-slate-600">Focus: {session.feedback.whatYouShouldWorkOn[0]}</p>}
+                </article>
+              ))}
+            </div>
+          ) : <p className="text-xs text-slate-600">No typed interview attempts recorded yet.</p>}
+        </section>
+      </div>
+
       {feedback ? (
         <>
       {/* Overview Context Card */}
@@ -132,7 +194,7 @@ export const ProgressView = ({
       </div>
 
       {/* Defensibility Scores Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+      <div className={`grid grid-cols-1 gap-5 ${answerMode === "voice" ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
         
         {/* Technical Depth */}
         <div className="rounded-2xl border border-cyan-200 bg-white p-5 flex flex-col justify-between">
@@ -154,8 +216,7 @@ export const ProgressView = ({
           </p>
         </div>
 
-        {/* Communication */}
-        <div className="rounded-2xl border border-emerald-200 bg-white p-5 flex flex-col justify-between">
+        {answerMode === "voice" ? <div className="rounded-2xl border border-emerald-200 bg-white p-5 flex flex-col justify-between">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2 text-emerald-700 font-bold text-xs">
               <Volume2 className="h-4 w-4" />
@@ -172,7 +233,18 @@ export const ProgressView = ({
           <p className="text-[11px] text-slate-600 leading-normal">
             Analyzed {signals.wordsPerMinute} WPM ({signals.pacingAssessment}) with {signals.fillerCount} filler words detected.
           </p>
-        </div>
+        </div> : <div className="rounded-2xl border border-emerald-200 bg-white p-5 flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2 text-emerald-700 font-bold text-xs">
+              <MessageSquare className="h-4 w-4" />
+              <span>Text Answer Quality</span>
+            </div>
+            <span className="text-2xl font-black text-slate-900 font-mono">{scores.overallReadiness ?? scores.communication ?? 0}%</span>
+          </div>
+          <p className="text-[11px] text-slate-600 leading-normal">
+            {answerWordCount} words · {answerLengthLabel} · {questionWordOverlap} question terms addressed.
+          </p>
+        </div>}
 
         {/* Answer Structure */}
         <div className="rounded-2xl border border-blue-200 bg-white p-5 flex flex-col justify-between">
@@ -196,7 +268,7 @@ export const ProgressView = ({
 
       </div>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
+      {answerMode === "voice" ? <section className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
         <div>
           <h2 className="text-sm font-bold text-slate-900">Communication Confidence Signals</h2>
           <p className="mt-1 text-xs text-slate-600">
@@ -212,6 +284,7 @@ export const ProgressView = ({
           <div>
             <span className="block text-[10px] uppercase tracking-wider text-slate-500">Filler words</span>
             <span className="mt-1 block font-semibold text-slate-900">{signals.fillerCount ?? 0} detected</span>
+            <span className="text-slate-600">{signals.fillerPercentage ?? 0}% of words</span>
           </div>
           <div>
             <span className="block text-[10px] uppercase tracking-wider text-slate-500">Answer length</span>
@@ -235,7 +308,18 @@ export const ProgressView = ({
             <span className="text-slate-600">Keyword overlap only</span>
           </div>
         </div>
-      </section>
+      </section> : <section className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
+        <div>
+          <h2 className="text-sm font-bold text-slate-900">Text Answer Analysis</h2>
+          <p className="mt-1 text-xs text-slate-600">Answer quality and relevance signals only. Voice pacing and filler analysis are not applied to typed responses.</p>
+        </div>
+        <div className="grid grid-cols-2 gap-4 text-xs sm:grid-cols-4">
+          <div><span className="block text-[10px] uppercase tracking-wider text-slate-500">Answer length</span><span className="mt-1 block font-semibold text-slate-900">{answerWordCount} words</span><span className="text-slate-600">{answerLengthLabel}</span></div>
+          <div><span className="block text-[10px] uppercase tracking-wider text-slate-500">PAR coverage</span><span className="mt-1 block font-semibold text-slate-900">{structureCount} of 3 signals</span></div>
+          <div><span className="block text-[10px] uppercase tracking-wider text-slate-500">Question relevance</span><span className="mt-1 block font-semibold text-slate-900">{questionWordOverlap} terms</span></div>
+          <div><span className="block text-[10px] uppercase tracking-wider text-slate-500">Answer score</span><span className="mt-1 block font-semibold text-slate-900">{scores.overallReadiness ?? scores.communication ?? 0}%</span></div>
+        </div>
+      </section>}
 
       {/* What You Did Well vs What You Should Work On */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

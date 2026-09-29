@@ -5,6 +5,25 @@
 // 2. GEMINI API MODE (Opt-in) - Calls Gemini API with client-side PII scrubbing if configured.
 
 import { speechService } from "./speechService";
+import { generatePrimaryInterviewQuestion } from "./coachingService";
+
+export const buildPlanContext = ({ plan = [], planProgress = {} } = {}) => {
+  const completedTopics = (plan || [])
+    .filter((item) => Boolean(planProgress?.[item.day] || planProgress?.[String(item.day)]))
+    .map((item) => ({
+      ...item,
+      topic: item.practiceTopic || item.topic || item.title,
+      improvementArea: item.category || item.practiceTopic || item.title,
+      claimId: item.practiceClaimId || item.claimId || null
+    }));
+
+  return {
+    completedTopics,
+    totalCompletedTopics: completedTopics.length,
+    hasCompletedPlan: completedTopics.length > 0,
+    allTopics: Array.isArray(plan) ? plan : []
+  };
+};
 
 // PII Sanitizer: Removes personal identifiers before any hypothetical external transmission
 export const sanitizePII = (text) => {
@@ -43,6 +62,102 @@ class AIService {
 
   getMode() {
     return this.mode;
+  }
+
+  getPlanContext({ plan = [], planProgress = {} } = {}) {
+    return buildPlanContext({ plan, planProgress });
+  }
+
+  getCompletedPlanTopics({ plan = [], planProgress = {} } = {}) {
+    return this.getPlanContext({ plan, planProgress }).completedTopics;
+  }
+
+  generateInterviewQuestion({
+    resumeData,
+    selectedRole,
+    experienceLevel,
+    activeClaim,
+    persona,
+    previousQuestion = "",
+    previousAnswer = "",
+    plan = [],
+    planProgress = {},
+    questionIndex = 0
+  } = {}) {
+    const planContext = buildPlanContext({ plan, planProgress });
+
+    if (planContext.hasCompletedPlan) {
+      const topic = planContext.completedTopics[questionIndex % planContext.completedTopics.length];
+      const projectName = activeClaim?.sourceProject || resumeData?.raw?.projects?.[0]?.title || "your project";
+      const personaId = persona?.id || "tech-lead";
+      const templates = {
+        "tech-lead": [
+          `In your ${projectName}, how did you approach ${topic.topic} and what trade-off did you evaluate while implementing it?`,
+          `For ${projectName}, walk me through the concrete decision you made around ${topic.topic}, and how you validated that it was the right choice.`,
+          `When you worked on ${topic.topic} in ${projectName}, what failure mode or edge case did you plan for, and how did you handle it?`
+        ],
+        "senior-developer": [
+          `In ${projectName}, how did you implement ${topic.topic}, and what did you do to keep that work testable and maintainable?`,
+          `What code-level decisions did you make for ${topic.topic} in ${projectName}, and which part would you improve if you rebuilt it?`,
+          `How did you verify ${topic.topic} in ${projectName}, and which edge case mattered most for the final result?`
+        ],
+        "hr-lead": [
+          `For ${projectName}, what was your specific responsibility in ${topic.topic}, and how did you communicate that work to the team or stakeholder?`,
+          `When working on ${topic.topic} in ${projectName}, what did you personally own, and what did you learn from the outcome?`,
+          `How would you explain your contribution to ${topic.topic} in ${projectName} in a structured, clear way to a hiring manager?`
+        ],
+        "empathetic-coach": [
+          `Let’s break down your work on ${topic.topic} in ${projectName}. What was the main problem, what did you do, and what outcome did you see?`,
+          `Could you walk through the specific part you handled in ${projectName} for ${topic.topic}, and what decision you made along the way?`,
+          `When you explain ${topic.topic}, what is the clearest example from ${projectName} that shows your contribution?`
+        ],
+        "founder": [
+          `In ${projectName}, how did ${topic.topic} create value or reduce risk, and what evidence showed it worked?`,
+          `What was the most important decision in ${topic.topic} for ${projectName}, and what trade-off did it force?`,
+          `If you had one more sprint on ${topic.topic} in ${projectName}, what would you improve first and why?`
+        ]
+      };
+
+      const templateSet = templates[personaId] || templates["tech-lead"];
+      const question = templateSet[questionIndex % templateSet.length];
+      return {
+        question: selectedRole ? `For the ${selectedRole} role, ${question}` : question,
+        metadata: {
+          sourceType: "plan",
+          sourceTopic: topic.topic,
+          claimId: topic.claimId || activeClaim?.id || null,
+          project: projectName,
+          difficulty: experienceLevel || "general",
+          persona: personaId,
+          role: selectedRole || "General",
+          planDay: topic.day,
+          planTopic: topic.topic,
+          improvementArea: topic.improvementArea
+        }
+      };
+    }
+
+    const fallbackQuestion = generatePrimaryInterviewQuestion({
+      claim: activeClaim,
+      resumeData,
+      selectedRole,
+      experienceLevel,
+      persona,
+      questionIndex
+    });
+
+    return {
+      question: fallbackQuestion,
+      metadata: {
+        sourceType: activeClaim ? "resume-claim" : "resume",
+        sourceTopic: activeClaim?.category || "resume-context",
+        claimId: activeClaim?.id || null,
+        project: activeClaim?.sourceProject || resumeData?.raw?.projects?.[0]?.title || "your project",
+        difficulty: experienceLevel || "general",
+        persona: persona?.id || "tech-lead",
+        role: selectedRole || "General"
+      }
+    };
   }
 
   // Check if answer is too short or vague, triggering adaptive follow-up

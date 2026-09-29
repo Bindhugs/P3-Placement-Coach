@@ -10,10 +10,14 @@ import {
   Sparkles,
   Layers
 } from "lucide-react";
+import { generateClaimRiskQuestions } from "../../services/coachingService";
 
 export const ClaimDetailModal = ({ 
   isOpen, 
   claim, 
+  resumeData,
+  selectedRole,
+  experienceLevel,
   onClose, 
   onPracticeClaim 
 }) => {
@@ -78,6 +82,7 @@ export const ClaimDetailModal = ({
 
   const badge = getRiskBadge(claim.riskLevel);
   const BadgeIcon = badge.icon;
+  const likelyQuestions = generateClaimRiskQuestions({ claim, resumeData, selectedRole, experienceLevel });
 
   return (
     <dialog
@@ -143,7 +148,7 @@ export const ClaimDetailModal = ({
               Likely Interviewer Questions
             </span>
             <div className="space-y-2">
-              {claim.likelyQuestions && claim.likelyQuestions.map((q, idx) => (
+              {likelyQuestions.map((q, idx) => (
                 <div 
                   key={idx}
                   className="rounded-lg border border-slate-200 bg-white p-3 hover:border-slate-300 transition-colors flex items-start gap-2.5"

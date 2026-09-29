@@ -208,6 +208,44 @@ export const generatePrimaryInterviewQuestion = ({ claim, resumeData, selectedRo
   return questions[variant];
 };
 
+export const generateClaimRiskQuestions = ({ claim, resumeData, selectedRole, experienceLevel }) => {
+  const context = getQuestionContext(claim, resumeData);
+  const roleContext = getQuestionRoleContext(selectedRole, experienceLevel);
+  const claimText = context.claimText || "this resume claim";
+  const technology = context.matchingSkills[0] || QUESTION_TECHNOLOGIES.find(skill =>
+    new RegExp(`\\b${skill.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(claimText)
+  );
+  const implementation = technology ? `using ${technology}` : "using the approach stated in your claim";
+  const result = /\b\d+(?:\.\d+)?\s?(?:%|x)(?![a-z])|\b\d+(?:\.\d+)?\s+(?:users?|customers?|requests?|records?|ms|seconds?|hours?)\b/i.exec(claimText)?.[0];
+
+  switch ((claim?.riskLevel || "LOW").toUpperCase()) {
+    case "HIGH":
+      return [
+        `${roleContext}walk through the exact implementation of “${claimText}” in ${context.contextTitle}, including the component you personally built ${implementation}.`,
+        `${roleContext}what architecture or design alternative did you consider for “${claimText}”, and what concrete trade-off made you choose your approach?`,
+        result
+          ? `${roleContext}how did you measure the claimed result of ${result} for “${claimText}”? What baseline, sample, and validation method support it?`
+          : `${roleContext}what measurable evidence supports “${claimText}”, and how did you verify the result independently?`,
+        `${roleContext}describe the hardest bug, edge case, or failure mode in “${claimText}”. How did you reproduce it, diagnose it, and verify the fix? What part of the claim would you narrow if the evidence did not support it?`
+      ];
+    case "MEDIUM":
+      return [
+        `${roleContext}what steps did you personally take to implement “${claimText}” in ${context.contextTitle}, and where did ${implementation} fit?`,
+        `${roleContext}which tools or technologies from the resume did you use for “${claimText}”, and what basic design choice guided that implementation?`,
+        `${roleContext}how did you test or otherwise verify “${claimText}”, and what practical issue did you have to resolve?`
+      ];
+    case "LOW":
+    default:
+      return [
+        `${roleContext}in your own words, what did you do for “${claimText}” in ${context.contextTitle}, and which part was yours?`,
+        technology
+          ? `${roleContext}what does ${technology} do in “${claimText}”, and how did you use it in your contribution?`
+          : `${roleContext}what was the basic approach you used to complete “${claimText}”, and what did you contribute?`,
+        `${roleContext}what simple check or outcome showed that your work on “${claimText}” was complete?${result ? ` How does that relate to the stated result ${result}?` : ""}`
+      ];
+  }
+};
+
 export const generateContextualFollowUp = ({ previousQuestion, answer, claim, resumeData, selectedRole, experienceLevel, persona }) => {
   const context = getQuestionContext(claim, resumeData);
   const roleContext = getQuestionRoleContext(selectedRole, experienceLevel);

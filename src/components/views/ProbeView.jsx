@@ -20,7 +20,7 @@ import { AudioVisualizer } from "../common/AudioVisualizer";
 import { INTERVIEWER_PERSONAS, getPersonaById } from "../../data/personas";
 import { speechService } from "../../services/speechService";
 import { aiService } from "../../services/aiService";
-import { generateContextualFollowUp, generatePrimaryInterviewQuestion } from "../../services/coachingService";
+import { generateContextualFollowUp } from "../../services/coachingService";
 
 export const ProbeView = ({ 
   activeClaim, 
@@ -30,7 +30,9 @@ export const ProbeView = ({
   userSettings,
   selectedRole,
   experienceLevel,
-  resumeData
+  resumeData,
+  plan = [],
+  planProgress = {}
 }) => {
   // Selected persona state
   const [selectedPersonaId, setSelectedPersonaId] = useState(null);
@@ -41,9 +43,12 @@ export const ProbeView = ({
   const [questionIndex, setQuestionIndex] = useState(0);
   const [questionRevision, setQuestionRevision] = useState(0);
   const [isInterviewerVoiceOn, setIsInterviewerVoiceOn] = useState(userSettings?.voiceEnabled !== false);
+  const [answerMode, setAnswerMode] = useState("text");
+  const [initialAnswerMode, setInitialAnswerMode] = useState("text");
 
   // Recording & Answer state
   const [isListening, setIsListening] = useState(false);
+  const [isFinalizingTranscript, setIsFinalizingTranscript] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [duration, setDuration] = useState(0);
   const [micError, setMicError] = useState(null);
@@ -89,22 +94,30 @@ export const ProbeView = ({
   // Initialize a question from the selected claim and interview context.
   useEffect(() => {
     if (!selectedPersonaId || !activePersona) return;
-    publishQuestion(generatePrimaryInterviewQuestion({
-      claim: activeClaim,
+    const generated = aiService.generateInterviewQuestion({
       resumeData,
       selectedRole,
       experienceLevel,
+      activeClaim,
       persona: activePersona,
+      previousQuestion: "",
+      previousAnswer: "",
+      plan,
+      planProgress,
       questionIndex: 0
-    }));
+    });
+    publishQuestion(generated.question);
     setQuestionIndex(0);
-    // Reset answers
     setTranscript("");
     setDuration(0);
+    setAnswerMode("text");
+    setInitialAnswerMode("text");
+    setFillerCount(0);
+    setDetectedFillers([]);
     setDrillDownActive(false);
     setDrillDownQuestion("");
     setInitialDuration(0);
-  }, [activeClaim, resumeData, selectedRole, experienceLevel, selectedPersonaId, activePersona]);
+  }, [activeClaim, resumeData, selectedRole, experienceLevel, selectedPersonaId, activePersona, plan, planProgress]);
 
   useEffect(() => {
     if (!selectedPersonaId || !activePersona || !isInterviewerVoiceOn || !displayedQuestion || lastSpokenRevisionRef.current === questionRevision) return;
@@ -134,26 +147,41 @@ export const ProbeView = ({
 
   // Live filler analysis on transcript change
   useEffect(() => {
+    if (answerMode !== "voice" || useTextInput) {
+      setFillerCount(0);
+      setDetectedFillers([]);
+      return;
+    }
     const signals = speechService.analyzeAnswerSignals(transcript, duration);
     setFillerCount(signals.fillerCount);
     setDetectedFillers(signals.detectedFillers);
-  }, [transcript, duration]);
+  }, [transcript, duration, answerMode, useTextInput]);
 
   // Start Voice Answer
   const handleStartListening = () => {
     setMicError(null);
+    setIsFinalizingTranscript(false);
+    setAnswerMode("voice");
     const started = speechService.startListening({
       onTranscript: ({ combined }) => {
         setTranscript(combined);
+        if (combined) setAnswerMode("voice");
       },
       onError: (err) => {
         console.warn("Mic error:", err.message);
         setMicError(err.message);
         setIsListening(false);
+        setIsFinalizingTranscript(false);
+        setAnswerMode("text");
         setUseTextInput(true); // graceful fallback to text
       },
-      onEnd: () => {
+      onEnd: ({ combined } = {}) => {
+        if (combined) {
+          setTranscript(combined);
+          setAnswerMode("voice");
+        }
         setIsListening(false);
+        setIsFinalizingTranscript(false);
       }
     });
 
@@ -164,16 +192,34 @@ export const ProbeView = ({
 
   // Stop Voice Answer
   const handleStopListening = () => {
+    setIsFinalizingTranscript(true);
+    speechService.stopListening({ preserveFinal: true });
+    setIsListening(false);
+  };
+
+  const handleToggleInputMode = () => {
     speechService.stopListening();
     setIsListening(false);
+    setIsFinalizingTranscript(false);
+    setTranscript("");
+    setDuration(0);
+    setAnswerMode("text");
+    setFillerCount(0);
+    setDetectedFillers([]);
+    setUseTextInput(value => !value);
   };
 
   // Try Again / Reset Answer
   const handleTryAgain = () => {
     speechService.stopListening();
     setIsListening(false);
+    setIsFinalizingTranscript(false);
     setTranscript("");
     setDuration(0);
+    setAnswerMode("text");
+    setInitialAnswerMode("text");
+    setFillerCount(0);
+    setDetectedFillers([]);
     setDrillDownActive(false);
     setDrillDownQuestion("");
     setInitialDuration(0);
@@ -185,14 +231,19 @@ export const ProbeView = ({
     handleTryAgain();
     const nextIdx = (questionIndex + 1) % 4;
     setQuestionIndex(nextIdx);
-    publishQuestion(generatePrimaryInterviewQuestion({
-      claim: activeClaim,
+    const generated = aiService.generateInterviewQuestion({
       resumeData,
       selectedRole,
       experienceLevel,
+      activeClaim,
       persona: activePersona,
+      previousQuestion: activeQuestion,
+      previousAnswer: transcript,
+      plan,
+      planProgress,
       questionIndex: nextIdx
-    }));
+    });
+    publishQuestion(generated.question);
   };
 
   // Submit Answer & Handle Adaptive Drill-Down
@@ -226,8 +277,10 @@ export const ProbeView = ({
         }));
         setInitialAnswer(transcript);
         setInitialDuration(duration);
+        setInitialAnswerMode(answerMode);
         setTranscript(""); // clear for follow-up answer
         setDuration(0);
+        setAnswerMode("text");
         return;
       }
     }
@@ -238,6 +291,17 @@ export const ProbeView = ({
     const fullCombinedAnswer = drillDownActive 
       ? `Initial response: ${initialAnswer}. Follow-up response: ${transcript}`
       : transcript;
+    const totalDuration = drillDownActive ? initialDuration + duration : duration;
+    const finalAnswerMode = drillDownActive ? initialAnswerMode : answerMode;
+    const voiceSegments = [
+      ...(finalAnswerMode === "voice" && drillDownActive ? [{ text: initialAnswer, seconds: initialDuration }] : []),
+      ...(finalAnswerMode === "voice" && answerMode === "voice" ? [{ text: transcript, seconds: duration }] : [])
+    ];
+    const voiceDuration = voiceSegments.reduce((total, segment) => total + segment.seconds, 0);
+    const voiceTranscript = voiceSegments.map(segment => segment.text).join(" ");
+    const voiceAnalysis = finalAnswerMode === "voice"
+      ? { ...speechService.analyzeAnswerSignals(voiceTranscript, voiceDuration), durationSeconds: voiceDuration }
+      : null;
 
     try {
       const feedback = await aiService.generateFeedback({
@@ -245,7 +309,7 @@ export const ProbeView = ({
         question: drillDownActive ? `${activeQuestion} [Follow-up: ${drillDownQuestion}]` : activeQuestion,
         answer: fullCombinedAnswer,
         persona: activePersona,
-        durationSeconds: duration + 10,
+        durationSeconds: totalDuration,
         apiKey: userSettings?.geminiApiKey
       });
       
@@ -254,10 +318,32 @@ export const ProbeView = ({
         ...feedback,
         signals: {
           ...feedback?.signals,
-          answerDurationSeconds: (drillDownActive ? initialDuration + duration : duration) || null
-        }
+          answerDurationSeconds: totalDuration || null,
+          ...(voiceAnalysis ? {
+            wordsPerMinute: voiceAnalysis.wordsPerMinute,
+            fillerCount: voiceAnalysis.fillerCount,
+            fillerPercentage: voiceAnalysis.fillerPercentage,
+            detectedFillers: voiceAnalysis.detectedFillers,
+            pacingAssessment: voiceAnalysis.pacingAssessment
+          } : {}),
+          ...(finalAnswerMode === "text" ? {
+            wordsPerMinute: undefined,
+            fillerCount: undefined,
+            fillerPercentage: undefined,
+            detectedFillers: undefined,
+            pacingAssessment: undefined
+          } : {})
+        },
+        ...(finalAnswerMode === "text" ? {
+          whatYouShouldWorkOn: (feedback?.whatYouShouldWorkOn || []).filter(item => !/filler|pacing|speaking rate/i.test(item))
+        } : {})
       };
-      onFinishInterview(feedbackWithDuration, activeClaim, activeQuestion, fullCombinedAnswer, activePersona);
+      onFinishInterview(feedbackWithDuration, activeClaim, activeQuestion, fullCombinedAnswer, activePersona, {
+        answerMode: finalAnswerMode,
+        durationSeconds: totalDuration,
+        voiceDurationSeconds: voiceDuration,
+        voiceAnalysis
+      });
     } catch (e) {
       console.error("Feedback error:", e);
       setIsAnalyzing(false);
@@ -317,7 +403,7 @@ export const ProbeView = ({
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {INTERVIEWER_PERSONAS.filter(persona => persona.id !== "founder").map((persona) => {
+          {INTERVIEWER_PERSONAS.map((persona) => {
             const isSelected = persona.id === selectedPersonaId;
             return (
               <button
@@ -480,11 +566,13 @@ export const ProbeView = ({
         </div>
 
         {/* Live Audio Visualizer */}
-        <AudioVisualizer 
-          isListening={isListening} 
-          duration={duration} 
-          fillerCount={fillerCount} 
-        />
+        {!useTextInput && (
+          <AudioVisualizer
+            isListening={isListening}
+            duration={duration}
+            fillerCount={answerMode === "voice" ? fillerCount : 0}
+          />
+        )}
 
         {/* Live Speech Recognition / Text Input Area */}
         <div className="space-y-3">
@@ -493,7 +581,7 @@ export const ProbeView = ({
               {useTextInput ? "Typed Answer Mode" : "Speech Transcript & Live Signals"}
             </span>
             <button
-              onClick={() => setUseTextInput(!useTextInput)}
+              onClick={handleToggleInputMode}
               className="text-cyan-700 hover:underline"
             >
               {useTextInput ? "Switch to Voice Mode" : "Switch to Text Input"}
@@ -504,7 +592,10 @@ export const ProbeView = ({
             <textarea
               rows={4}
               value={transcript}
-              onChange={(e) => setTranscript(e.target.value)}
+              onChange={(e) => {
+                setTranscript(e.target.value);
+                setAnswerMode("text");
+              }}
               placeholder="Type your response as you would speak it in an interview..."
               className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs sm:text-sm text-slate-900 placeholder-slate-500 focus:border-cyan-500 focus:outline-none leading-relaxed"
             />
@@ -527,19 +618,27 @@ export const ProbeView = ({
             <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
               Words: {transcript.split(/\s+/).filter(Boolean).length}
             </span>
-            <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
-              Duration: {duration}s
-            </span>
-            <span className={`px-2 py-0.5 rounded border ${
-              fillerCount > 2 
-                ? "bg-amber-50 text-amber-800 border-amber-200"
-                : "bg-emerald-50 text-emerald-700 border-emerald-200"
-            }`}>
-              Fillers: {fillerCount} {fillerCount > 0 && `(${detectedFillers.map(f => f.word).join(", ")})`}
-            </span>
-            <span className="text-slate-500 text-[10px]">
-              (Pacing, pauses & filler words are observable delivery signals)
-            </span>
+            {!useTextInput && (
+              <>
+                <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                  Duration: {duration}s
+                </span>
+                {answerMode === "voice" && (
+                  <>
+                    <span className={`px-2 py-0.5 rounded border ${
+                      fillerCount > 2
+                        ? "bg-amber-50 text-amber-800 border-amber-200"
+                        : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    }`}>
+                      Fillers: {fillerCount} {fillerCount > 0 && `(${detectedFillers.map(f => f.word).join(", ")})`}
+                    </span>
+                    <span className="text-slate-500 text-[10px]">
+                      (Pacing, pauses & filler words are observable delivery signals)
+                    </span>
+                  </>
+                )}
+              </>
+            )}
           </div>
 
           {/* Microphone or General Error Notice */}
@@ -595,9 +694,9 @@ export const ProbeView = ({
 
           <button
             onClick={handleSubmitAnswer}
-            disabled={isAnalyzing || !transcript.trim()}
+            disabled={isAnalyzing || isListening || isFinalizingTranscript || !transcript.trim()}
             className={`flex items-center gap-2 rounded-xl px-6 py-2.5 text-xs font-bold transition-all shadow-md ${
-              isAnalyzing || !transcript.trim()
+              isAnalyzing || isListening || isFinalizingTranscript || !transcript.trim()
                 ? "bg-slate-100 text-slate-500 cursor-not-allowed border border-slate-200"
                 : "bg-emerald-600 text-white hover:bg-emerald-500 active:scale-95 shadow-emerald-600/20"
             }`}

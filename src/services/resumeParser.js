@@ -15,7 +15,9 @@ const HIGH_RISK_PATTERNS = [
 ];
 
 const MEDIUM_RISK_PATTERNS = [
- { pattern: /\b(indexing|postgresql|nosql|mongodb|redis)\b/i, reason: "Database claims trigger questions on B-Tree internals, query execution plans, and cache invalidation." },
+ { pattern: /\b(indexing|mysql|postgresql|nosql|mongodb|redis)\b/i, reason: "Database claims trigger questions on B-Tree internals, query execution plans, and cache invalidation." },
+  { pattern: /\b(transaction(?:al)?|rollback|billing)\b/i, reason: "Transaction and billing claims require clear database boundaries, idempotency, and external payment reconciliation." },
+  { pattern: /\b(random forest|xgboost|validation accuracy)\b/i, reason: "Model evaluation claims require evidence of data splits, class balance, and metrics beyond accuracy." },
   { pattern: /\b(rest api|graphql|endpoints|crud)\b/i, reason: "API claims lead to questions on authentication, rate limiting, error status codes, and idempotency." },
   { pattern: /\b(fastapi|flask|django|express|spring boot|react|angular|vue)\b/i, reason: "Framework claims test knowledge of lifecycle, middleware, state management, and dependency injection." }
 ];
@@ -137,6 +139,30 @@ export class ResumeParser {
       const cleanLine = line.replace(/^\s*(?:[•●▪►]\s*|[-*]\s+|\d+[.)]\s*)/, "").trim();
       if (!cleanLine || isDateOnly(cleanLine)) return;
 
+      if (currentSection === "Projects" || currentSection === "Work Experience") {
+        if (cleanLine.split(/\s+/).length > 38) {
+          presentationIssues.push({
+            id: `fmt-len-${index}`,
+            type: "FORMAT_DENSITY",
+            title: "Dense Bullet Point",
+            description: `Line has ${cleanLine.split(/\s+/).length} words. Long bullets are skimmed over by recruiters and obscure your accomplishments.`,
+            location: `Line ${index + 1}`,
+            recommendation: "Split into two concise bullets: one emphasizing the technical action, one emphasizing the measured result."
+          });
+        }
+
+        if (/responsible for|helped in|worked on/i.test(cleanLine)) {
+          presentationIssues.push({
+            id: `fmt-vague-${index}`,
+            type: "VAGUE_OWNERSHIP",
+            title: "Passive Ownership Wording",
+            description: "Phrases like 'worked on' or 'helped in' signal lack of technical ownership to engineering managers.",
+            location: `Line ${index + 1}`,
+            recommendation: "Use strong active engineering verbs like 'Architected', 'Implemented', 'Refactored', or 'Engineered'."
+          });
+        }
+      }
+
       const hasAction = hasResumeAction(cleanLine);
       if (currentSection === "Projects" && (!hasAction || (!hasBullet && cleanLine.length <= 28))) {
         if (cleanLine.length >= 3) {
@@ -230,28 +256,6 @@ export class ResumeParser {
         }
       }
 
-      // Presentation formatting checks
-      if (cleanLine.split(/\s+/).length > 38) {
-        presentationIssues.push({
-          id: `fmt-len-${index}`,
-          type: "FORMAT_DENSITY",
-          title: "Dense Bullet Point",
-          description: `Line has ${cleanLine.split(/\s+/).length} words. Long bullets are skimmed over by recruiters and obscure your accomplishments.`,
-          location: `Line ${index + 1}`,
-          recommendation: "Split into two concise bullets: one emphasizing the technical action, one emphasizing the measured result."
-        });
-      }
-
-      if (/responsible for|helped in|worked on/i.test(cleanLine)) {
-        presentationIssues.push({
-          id: `fmt-vague-${index}`,
-          type: "VAGUE_OWNERSHIP",
-          title: "Passive Ownership Wording",
-          description: "Phrases like 'worked on' or 'helped in' signal lack of technical ownership to engineering managers.",
-          location: `Line ${index + 1}`,
-          recommendation: "Use strong active engineering verbs like 'Architected', 'Implemented', 'Refactored', or 'Engineered'."
-        });
-      }
     });
 
     const finalClaims = extractedClaims;
@@ -276,12 +280,11 @@ export class ResumeParser {
           summary: lines.slice(0, 3).join(" ")
         },
         skills: {
-  languages: detectedSkills.filter(skill =>
-  [
-    "Python", "TypeScript", "Java",
-    "C++", "C#", "Go", "Rust"
-  ].includes(skill)
-),
+  languages: [...new Set(detectedSkills.filter(skill =>
+    [
+      "Python", "JavaScript", "TypeScript", "Java", "C++", "C#", "Go", "Rust", "SQL"
+    ].includes(skill)
+  ))],
 
   frameworks: detectedSkills.filter(skill =>
     [

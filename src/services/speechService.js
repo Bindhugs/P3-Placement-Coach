@@ -2,7 +2,7 @@
 // Operates ephemerally in browser memory. Never persists raw audio streams.
 
 export const FILLER_WORDS = [
-  "um", "uh", "like", "you know", "basically", "actually", "sort of", "kind of", "i mean", "right"
+  "um", "uh", "erm", "hmm", "like", "you know", "basically", "actually", "literally", "i mean", "so", "sort of", "kind of", "right"
 ];
 
 class SpeechService {
@@ -42,6 +42,7 @@ class SpeechService {
     try {
       this.isListening = true;
       let finalTranscript = "";
+      let latestCombinedTranscript = "";
 
       this.recognition.onresult = (event) => {
         let interimTranscript = "";
@@ -52,11 +53,12 @@ class SpeechService {
             interimTranscript += event.results[i][0].transcript;
           }
         }
+        latestCombinedTranscript = (finalTranscript + " " + interimTranscript).trim();
         if (onTranscript) {
           onTranscript({
             final: finalTranscript.trim(),
             interim: interimTranscript.trim(),
-            combined: (finalTranscript + " " + interimTranscript).trim()
+            combined: latestCombinedTranscript
           });
         }
       };
@@ -75,7 +77,10 @@ class SpeechService {
 
       this.recognition.onend = () => {
         this.isListening = false;
-        if (onEnd) onEnd();
+        if (onEnd) onEnd({ final: finalTranscript.trim(), combined: latestCombinedTranscript || finalTranscript.trim() });
+        this.recognition.onresult = null;
+        this.recognition.onerror = null;
+        this.recognition.onend = null;
       };
 
       this.recognition.start();
@@ -88,7 +93,7 @@ class SpeechService {
     }
   }
 
-  stopListening() {
+  stopListening({ preserveFinal = false } = {}) {
     if (!this.recognition) return;
 
     const recognition = this.recognition;
@@ -100,9 +105,11 @@ class SpeechService {
       }
     }
     this.isListening = false;
-    recognition.onresult = null;
-    recognition.onerror = null;
-    recognition.onend = null;
+    if (!preserveFinal) {
+      recognition.onresult = null;
+      recognition.onerror = null;
+      recognition.onend = null;
+    }
   }
 
   // Text-To-Speech for Interviewer Persona
@@ -154,13 +161,36 @@ class SpeechService {
     const minutes = Math.max(durationSeconds / 60, 0.1);
     const wordsPerMinute = Math.round(wordCount / minutes);
 
-    // Detect filler words
+    // Treat "like" and "so" as fillers only in common discourse-marker positions.
     const detectedFillers = [];
     let fillerCount = 0;
 
     FILLER_WORDS.forEach(filler => {
-      const regex = new RegExp(`\\b${filler}\\b`, "gi");
-      const matches = transcript.match(regex);
+      const escaped = filler.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      let matches;
+      if (filler === "like") {
+        const lowerTranscript = transcript.toLowerCase();
+        matches = [];
+        let searchIndex = 0;
+        let matchIndex = lowerTranscript.indexOf("like", searchIndex);
+        while (matchIndex !== -1) {
+          const previousCharacter = lowerTranscript[matchIndex - 1] || " ";
+          const nextCharacter = lowerTranscript[matchIndex + 4] || " ";
+          const before = transcript.slice(0, matchIndex).trimEnd();
+          const after = transcript.slice(matchIndex + 4).trimStart();
+          const isWholeWord = !/[a-z']/i.test(previousCharacter) && !/[a-z']/i.test(nextCharacter);
+          const followsPause = !before || /[,;.!?]$/.test(before) || /\b(?:was|were|is|are)[,;]?$/.test(before.toLowerCase());
+          const endsAtPause = !after || ",;.!?".includes(after[0]);
+          if (isWholeWord && followsPause && endsAtPause) matches.push("like");
+          searchIndex = matchIndex + 4;
+          matchIndex = lowerTranscript.indexOf("like", searchIndex);
+        }
+      } else {
+        const regex = filler === "so"
+          ? /(?:^|[.!?]\s+|[,;]\s+)so\b/gi
+          : new RegExp(`\\b${escaped}\\b`, "gi");
+        matches = transcript.match(regex);
+      }
       if (matches) {
         fillerCount += matches.length;
         detectedFillers.push({ word: filler, count: matches.length });
